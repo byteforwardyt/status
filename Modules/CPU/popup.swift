@@ -1,18 +1,15 @@
 //
 //  popup.swift
-//  CPU
-//
-//  Created by Serhiy Mytrovtsiy on 15/04/2020.
-//  Using Swift 5.0.
-//  Running on macOS 10.15.
-//
-//  Copyright © 2020 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Cocoa
 import Kit
 
 internal class Popup: PopupWrapper {
+    private let insightCard = InsightCardView(width: Constants.Popup.width)
+    private let insightContainer = NSView()
+    private var insightHeight: NSLayoutConstraint?
     private let dashboardHeight: CGFloat = 90
     private let chartHeight: CGFloat = 120 + Constants.Popup.separatorHeight + Constants.Popup.spacing*2
     private var detailsHeight: CGFloat {
@@ -151,6 +148,7 @@ internal class Popup: PopupWrapper {
         self.lineChartScale = Scale.fromString(Store.shared.string(key: "\(self.title)_lineChartScale", defaultValue: self.lineChartScale.key))
         self.lineChartFixedScale = Double(Store.shared.int(key: "\(self.title)_lineChartFixedScale", defaultValue: 100)) / 100
         
+        self.addArrangedSubview(self.initInsight())
         self.addArrangedSubview(self.initDashboard())
         self.addArrangedSubview(self.initChart())
         self.addArrangedSubview(self.initDetails())
@@ -194,6 +192,45 @@ internal class Popup: PopupWrapper {
             self.setFrameSize(NSSize(width: self.frame.width, height: h))
             self.sizeCallback?(self.frame.size)
         }
+    }
+    
+    // "why is the CPU busy/hot" card, only shown when something needs explaining
+    private func initInsight() -> NSView {
+        self.insightContainer.frame = NSRect(x: 0, y: 0, width: self.frame.width, height: 0)
+        self.insightContainer.translatesAutoresizingMaskIntoConstraints = false
+        self.insightCard.translatesAutoresizingMaskIntoConstraints = false
+        self.insightContainer.addSubview(self.insightCard)
+        NSLayoutConstraint.activate([
+            self.insightCard.topAnchor.constraint(equalTo: self.insightContainer.topAnchor, constant: 6),
+            self.insightCard.leadingAnchor.constraint(equalTo: self.insightContainer.leadingAnchor),
+            self.insightContainer.widthAnchor.constraint(equalToConstant: self.frame.width)
+        ])
+        let height = self.insightContainer.heightAnchor.constraint(equalToConstant: 0)
+        height.isActive = true
+        self.insightHeight = height
+        self.insightContainer.isHidden = true
+        return self.insightContainer
+    }
+    
+    private func updateInsight(_ list: [TopProcess]) {
+        let top = list.sorted { $0.usage > $1.usage }.map {
+            SampledProcess(pid: $0.pid, name: $0.name, cpu: $0.usage, memory: 0, path: ProcessSampler.executablePath($0.pid))
+        }
+        let insight = InsightEngine.explainCPU(usage: HealthMonitor.shared.value(.cpuUsage), temperature: HealthMonitor.shared.value(.cpuTemperature), top: top)
+        let height: CGFloat
+        if let insight {
+            self.insightCard.set(insight)
+            self.insightContainer.isHidden = false
+            self.insightCard.layoutSubtreeIfNeeded()
+            height = self.insightCard.fittingSize.height + 12
+        } else {
+            self.insightContainer.isHidden = true
+            height = 0
+        }
+        guard self.insightHeight?.constant != height else { return }
+        self.insightHeight?.constant = height
+        self.insightContainer.setFrameSize(NSSize(width: self.frame.width, height: height))
+        self.recalculateHeight()
     }
     
     private func initDashboard() -> NSView {
@@ -446,6 +483,7 @@ internal class Popup: PopupWrapper {
         }
         
         self.temperatureCircle?.toolTip = "\(localizedString("CPU temperature")): \(temperature(value))"
+        self.temperatureCircle?.setColor(Severity.isEnabled ? Severity.temperature(value).color : .systemBlue)
         self.temperatureCircle?.setValue(value/100)
         self.temperatureCircle?.setText(temperature(value))
         self.temperatureCircle?.display()
@@ -506,6 +544,9 @@ internal class Popup: PopupWrapper {
             }
             
             self.initializedProcesses = true
+            if self.window?.isVisible ?? false {
+                self.updateInsight(list)
+            }
         })
     }
     
@@ -541,6 +582,12 @@ internal class Popup: PopupWrapper {
         self.average1Field?.stringValue = "\(value.load1)"
         self.average5Field?.stringValue = "\(value.load5)"
         self.average15Field?.stringValue = "\(value.load15)"
+        
+        // load is relative to the number of logical cores: 1.0 per core means fully busy
+        let cores = Double(max(SystemKit.shared.device.info.cpu?.logicalCores ?? 1, 1))
+        self.average1Field?.textColor = Severity.usage(value.load1 / cores).textColor
+        self.average5Field?.textColor = Severity.usage(value.load5 / cores).textColor
+        self.average15Field?.textColor = Severity.usage(value.load15 / cores).textColor
     }
     
     // MARK: - Settings

@@ -1,12 +1,6 @@
 //
 //  main.swift
-//  Battery
-//
-//  Created by Serhiy Mytrovtsiy on 06/06/2020.
-//  Using Swift 5.0.
-//  Running on macOS 10.15.
-//
-//  Copyright © 2020 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Cocoa
@@ -56,6 +50,8 @@ struct UPS_Usage: Codable {
 }
 
 public class Battery: Module {
+    public override var pauseWhenDisplaySleeps: Bool { false }
+    
     private let popupView: Popup
     private let settingsView: Settings
     private let portalView: Portal
@@ -116,6 +112,11 @@ public class Battery: Module {
     
     private func usageCallback(_ raw: Battery_Usage?) {
         guard let value = raw, self.enabled else { return }
+        HealthMonitor.shared.isCharging = !value.isBatteryPowered
+        HealthMonitor.shared.report(.batteryLevel, abs(value.level) * 100)
+        if value.health > 0 {
+            HealthMonitor.shared.report(.batteryHealth, Double(value.health))
+        }
         
         self.popupView.usageCallback(value)
         self.portalView.loadCallback(value)

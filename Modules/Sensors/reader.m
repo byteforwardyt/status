@@ -1,18 +1,12 @@
 //
 //  reader.m
-//  Sensors
-//
-//  Created by Serhiy Mytrovtsiy on 06/05/2021.
-//  Using Swift 5.0.
-//  Running on macOS 10.15.
-//
-//  Copyright © 2021 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 #import <Foundation/Foundation.h>
 #import "bridge.h"
 
-@interface StatsHIDSensorSource : NSObject {
+@interface StatusHIDSensorSource : NSObject {
     IOHIDEventSystemClientRef _client;
     CFArrayRef _services;
     NSTimeInterval _lastDiscovery;
@@ -22,7 +16,7 @@
 - (void)reset;
 @end
 
-@implementation StatsHIDSensorSource
+@implementation StatusHIDSensorSource
 
 - (void)reset {
     if (_services) { CFRelease(_services); _services = NULL; }
@@ -82,7 +76,7 @@
 
 @end
 
-static NSMutableDictionary<NSString *, StatsHIDSensorSource *> *sensorSources(void) {
+static NSMutableDictionary<NSString *, StatusHIDSensorSource *> *sensorSources(void) {
     static NSMutableDictionary *sources;
     static dispatch_once_t once;
     dispatch_once(&once, ^{ sources = [NSMutableDictionary dictionary]; });
@@ -93,9 +87,9 @@ NSDictionary*AppleSiliconSensors(int32_t page, int32_t usage, int32_t type) {
     NSMutableDictionary *sources = sensorSources();
     @synchronized (sources) {
         NSString *key = [NSString stringWithFormat:@"%d:%d", page, usage];
-        StatsHIDSensorSource *source = sources[key];
+        StatusHIDSensorSource *source = sources[key];
         if (!source) {
-            source = [[StatsHIDSensorSource alloc] init];
+            source = [[StatusHIDSensorSource alloc] init];
             sources[key] = source;
         }
         return [source readPage:page usage:usage type:type];

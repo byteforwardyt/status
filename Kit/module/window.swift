@@ -1,12 +1,6 @@
 //
-//  settings.swift
-//  Kit
-//
-//  Created by Serhiy Mytrovtsiy on 13/04/2020.
-//  Using Swift 5.0.
-//  Running on macOS 10.15.
-//
-//  Copyright © 2020 Serhiy Mytrovtsiy. All rights reserved.
+//  window.swift
+//  Status
 //
 
 import Cocoa
@@ -156,20 +150,6 @@ open class Window: NSStackView {
             bottom: Constants.Settings.margin,
             right: Constants.Settings.margin
         )
-        
-        if self.config.name == "Remote" {
-            let widgetSelector = WidgetSelectorView(module: self.config.name, widgets: self.widgets, stateCallback: self.loadWidget)
-            self.widgetSelector = widgetSelector
-            
-            view.addArrangedSubview(widgetSelector)
-            
-            if let settingsView = self.moduleSettings {
-                settingsView.load(widgets: self.widgets.filter { $0.isActive }.map { $0.type })
-                view.addArrangedSubview(settingsView)
-            }
-            
-            return view
-        }
         
         var labels: [String] = [
             localizedString("Module"),

@@ -1,12 +1,6 @@
 //
 //  main.swift
-//  Net
-//
-//  Created by Serhiy Mytrovtsiy on 24/05/2020.
-//  Using Swift 5.0.
-//  Running on macOS 10.15.
-//
-//  Copyright © 2020 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Cocoa
@@ -75,7 +69,7 @@ enum WiFiLocationAuthorization: String, Codable {
     case notDetermined, denied, authorized
 }
 
-public struct Network_Usage: Codable, RemoteType {
+public struct Network_Usage: Codable {
     var bandwidth: Bandwidth = Bandwidth()
     var total: Bandwidth = Bandwidth()
     
@@ -104,18 +98,14 @@ public struct Network_Usage: Codable, RemoteType {
         
         self.wifiDetails.reset()
     }
-    
-    public func remote() -> Data? {
-        let addr = "\(self.laddr.v4 ?? ""),\(self.laddr.v6 ?? ""),\(self.raddr.v4 ?? ""),\(self.raddr.v6 ?? "")"
-        let string = "1,\(self.interface?.BSDName ?? ""),1,\(self.bandwidth.download),\(self.bandwidth.upload),\(addr)$"
-        return string.data(using: .utf8)
-    }
 }
 
 public struct Network_Connectivity: Codable {
     var status: Bool = false
     var latency: Double = 0
     var jitter: Double = 0
+    var packetLoss: Double? = nil
+    var routerLatency: Double? = nil
 }
 
 public struct Network_Process: Codable, Process_p {
@@ -138,6 +128,13 @@ public struct Network_Process: Codable, Process_p {
 }
 
 public class Network: Module {
+    public override var pauseWhenDisplaySleeps: Bool { false }
+    
+    public override func willTerminate() {
+        NetworkStats.shared.persist()
+        AppTrafficMonitor.shared.stop()
+    }
+    
     private let popupView: Popup
     private let settingsView: Settings
     private let portalView: Portal
@@ -148,7 +145,7 @@ public class Network: Module {
     private var processReader: ProcessReader? = nil
     private var connectivityReader: ConnectivityReader? = nil
     
-    private let ipUpdater = NSBackgroundActivityScheduler(identifier: "eu.exelban.Stats.Network.IP")
+    private let ipUpdater = NSBackgroundActivityScheduler(identifier: "app.status.Status.Network.IP")
     
     private var widgetActivationThresholdState: Bool {
         Store.shared.bool(key: "\(self.config.name)_widgetActivationThresholdState", defaultValue: false)
@@ -231,6 +228,7 @@ public class Network: Module {
         }
         
         self.setReaders([self.usageReader, self.processReader, self.connectivityReader])
+        AppTrafficMonitor.shared.start()
         
         self.setIPUpdater()
         self.setUsageReset()
@@ -248,6 +246,8 @@ public class Network: Module {
     
     private func usageCallback(_ raw: Network_Usage?) {
         guard let value = raw, self.enabled else { return }
+        HealthMonitor.shared.report(.networkDown, Double(value.bandwidth.download))
+        HealthMonitor.shared.report(.networkUp, Double(value.bandwidth.upload))
         
         self.popupView.usageCallback(value)
         self.portalView.usageCallback(value)
@@ -353,6 +353,12 @@ public class Network: Module {
     
     private func connectivityCallback(_ raw: Network_Connectivity?) {
         guard let value = raw, self.enabled else { return }
+        if value.status {
+            HealthMonitor.shared.report(.latency, value.latency)
+        }
+        if let loss = value.packetLoss {
+            HealthMonitor.shared.report(.packetLoss, loss)
+        }
         
         self.popupView.connectivityCallback(value)
         self.notificationsView.connectivityCallback(value)
@@ -396,3 +402,13 @@ public class Network: Module {
         }
     }
 }
+
+#if DEBUG
+extension Network {
+    /// Debug-only hook for the `--snapshot` UI capture mode.
+    public static func debugConnectionsWindow() -> NSWindow? {
+        ConnectionsWindow.open()
+        return ConnectionsWindow.shared
+    }
+}
+#endif

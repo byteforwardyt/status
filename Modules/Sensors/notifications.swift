@@ -1,12 +1,6 @@
 //
 //  notifications.swift
-//  Sensors
-//
-//  Created by Serhiy Mytrovtsiy on 05/12/2023
-//  Using Swift 5.0
-//  Running on macOS 14.1
-//
-//  Copyright © 2023 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Cocoa

@@ -5,7 +5,7 @@ build: test-smc
 	rm -rf ./build
 
 	xcodebuild \
-		-project ../Stats.xcodeproj \
+		-project ../Status.xcodeproj \
   		-scheme SMC \
   		-destination 'platform=OS X,arch=x86_64' \
   		-configuration Release archive \

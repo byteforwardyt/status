@@ -1,12 +1,6 @@
 //
 //  reader.swift
-//  Kit
-//
-//  Created by Serhiy Mytrovtsiy on 10/04/2020.
-//  Using Swift 5.0.
-//  Running on macOS 10.15.
-//
-//  Copyright © 2020 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Cocoa
@@ -30,6 +24,7 @@ public protocol Reader_p {
     func initStoreValues(title: String)
     func setInterval(_ value: Int)
     func sleepMode(state: Bool)
+    func replay()
 }
 
 public protocol ReaderInternal_p {
@@ -43,15 +38,14 @@ open class Reader<T: Codable>: NSObject, ReaderInternal_p {
     public var log: NextLog {
         NextLog.shared.copy(category: "\(String(describing: self))")
     }
-    private let valueQueue = DispatchQueue(label: "eu.exelban.readerActiveQueue")
+    private let valueQueue = DispatchQueue(label: "app.status.readerActiveQueue")
     private var _value: T?
     public var value: T? {
         get { self.valueQueue.sync { self._value } }
         set { self.valueQueue.sync { self._value = newValue } }
     }
-    public var name: String {
-        String(NSStringFromClass(type(of: self)).split(separator: ".").last ?? "unknown")
-    }
+    public private(set) lazy var name: String = String(NSStringFromClass(type(of: self)).split(separator: ".").last ?? "unknown")
+    private lazy var moduleKey: String = "\(self.module.stringValue)@\(self.name)"
     
     public var interval: Double? = nil
     public var defaultInterval: Int = 1
@@ -70,7 +64,7 @@ open class Reader<T: Codable>: NSObject, ReaderInternal_p {
     private var locked: Bool = true
     private var initlizalized: Bool = false
     
-    private let activeQueue = DispatchQueue(label: "eu.exelban.readerActiveQueue")
+    private let activeQueue = DispatchQueue(label: "app.status.readerActiveQueue")
     private var _active: Bool = false
     public var active: Bool {
         get { self.activeQueue.sync { self._active } }
@@ -80,7 +74,7 @@ open class Reader<T: Codable>: NSObject, ReaderInternal_p {
     private var lastDBWrite: Date? = nil
     
     private var alignGeneration: UInt = 0
-    private let alignQueue = DispatchQueue(label: "eu.exelban.readerAlignQueue")
+    private let alignQueue = DispatchQueue(label: "app.status.readerAlignQueue")
     
     public init(_ module: ModuleType, popup: Bool = false, preview: Bool = false, history: Bool = false, callback: @escaping (T?) -> Void = {_ in }) {
         self.popup = popup
@@ -90,8 +84,8 @@ open class Reader<T: Codable>: NSObject, ReaderInternal_p {
         self.callbackHandler = callback
         
         super.init()
-        DB.shared.setup(T.self, "\(module.stringValue)@\(self.name)")
-        if let lastValue = DB.shared.findOne(T.self, key: "\(module.stringValue)@\(self.name)") {
+        DB.shared.setup(T.self, self.moduleKey)
+        if let lastValue = DB.shared.findOne(T.self, key: self.moduleKey) {
             self.value = lastValue
             callback(lastValue)
         }
@@ -111,11 +105,10 @@ open class Reader<T: Codable>: NSObject, ReaderInternal_p {
     }
     
     public func callback(_ value: T?) {
-        let moduleKey = "\(self.module.stringValue)@\(self.name)"
+        let moduleKey = self.moduleKey
         self.value = value
         if let value {
             self.callbackHandler(value)
-            SystemStats.shared.send(key: moduleKey, value: value)
             if let ts = self.lastDBWrite, let interval = self.interval, Date().timeIntervalSince(ts) > interval * 10 {
                 DB.shared.insert(key: moduleKey, value: value, ts: self.history)
                 self.lastDBWrite = Date()
@@ -254,7 +247,19 @@ open class Reader<T: Codable>: NSObject, ReaderInternal_p {
     }
 }
 
+extension Reader {
+    /// True while a popup or settings page that shows this reader's full data is open.
+    public var hasVisibleConsumer: Bool { !self.locked }
+}
+
 extension Reader: Reader_p {
+    /// Re-delivers the latest value, e.g. so a widget that was just switched on shows data immediately
+    /// even for event-driven readers that only fire when the hardware state changes.
+    public func replay() {
+        guard let value = self.value else { return }
+        self.callbackHandler(value)
+    }
+    
     public func lock() {
         self.locked = true
     }

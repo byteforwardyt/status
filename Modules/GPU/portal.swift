@@ -1,12 +1,6 @@
 //
 //  portal.swift
-//  GPU
-//
-//  Created by Serhiy Mytrovtsiy on 18/02/2023
-//  Using Swift 5.0
-//  Running on macOS 13.2
-//
-//  Copyright © 2023 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Cocoa

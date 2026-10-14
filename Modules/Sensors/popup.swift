@@ -1,12 +1,6 @@
 //
 //  popup.swift
-//  Sensors
-//
-//  Created by Serhiy Mytrovtsiy on 22/06/2020.
-//  Using Swift 5.0.
-//  Running on macOS 10.15.
-//
-//  Copyright © 2020 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Cocoa
@@ -292,10 +286,14 @@ internal class SensorView: NSStackView {
     
     public func update(_ sensor: Sensor_p) {
         var value = sensor.formattedPopupValue
+        var color: NSColor = .labelColor
         if let fan = sensor as? Fan {
             value = self.fanValueState == .percentage ? "\(fan.percentage)%" : fan.formattedValue
+            color = Severity.usage(Double(fan.percentage) / 100).textColor
+        } else if sensor.type == .temperature {
+            color = Severity.temperature(sensor.value).textColor // raw value is Celsius
         }
-        self.valueView.update(value)
+        self.valueView.update(value, color: color)
     }
     
     public func addHistoryPoint(_ sensor: Sensor_p) {
@@ -366,8 +364,9 @@ internal class ValueSensorView: NSStackView {
         fatalError("init(coder:) has not been implemented")
     }
     
-    public func update(_ value: String) {
+    public func update(_ value: String, color: NSColor = .labelColor) {
         self.valueView.stringValue = value
+        self.valueView.textColor = color
     }
     
     override func mouseDown(with theEvent: NSEvent) {
@@ -940,7 +939,7 @@ internal class FanView: NSStackView {
         
         let alert = NSAlert()
         alert.messageText = localizedString("Fan helper needs your approval")
-        alert.informativeText = localizedString("To control the fans, enable Stats in System Settings ▸ Login Items.")
+        alert.informativeText = localizedString("To control the fans, enable Status in System Settings ▸ Login Items.")
         alert.addButton(withTitle: localizedString("Open Login Items"))
         alert.addButton(withTitle: localizedString("Cancel"))
         
@@ -952,7 +951,7 @@ internal class FanView: NSStackView {
     private func showInstallFailed() {
         let alert = NSAlert()
         alert.messageText = localizedString("Could not enable the fan helper")
-        alert.informativeText = localizedString("Open System Settings ▸ Login Items, make sure Stats is allowed in the background, then try again.")
+        alert.informativeText = localizedString("Open System Settings ▸ Login Items, make sure Status is allowed in the background, then try again.")
         alert.addButton(withTitle: localizedString("Open Login Items"))
         alert.addButton(withTitle: localizedString("Cancel"))
         

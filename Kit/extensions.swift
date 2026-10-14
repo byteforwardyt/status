@@ -1,12 +1,6 @@
 //
 //  extensions.swift
-//  Kit
-//
-//  Created by Serhiy Mytrovtsiy on 10/04/2020.
-//  Using Swift 5.0.
-//  Running on macOS 10.15.
-//
-//  Copyright © 2020 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Cocoa
@@ -256,68 +250,35 @@ public extension Double {
         return (self * divisor).rounded() / divisor
     }
     
+    /// Four-step Green / Yellow / Orange / Red scale. `zones` are the orange and red thresholds;
+    /// yellow starts 0.2 below orange. `reversed` is for metrics where low is bad (battery).
     func usageColor(zones: colorZones = (0.6, 0.8), reversed: Bool = false) -> NSColor {
-        let firstColor: NSColor = NSColor.systemBlue
-        let secondColor: NSColor = NSColor.orange
-        let thirdColor: NSColor = NSColor.red
-        
-        if reversed {
-            switch self {
-            case 0...zones.orange:
-                return thirdColor
-            case zones.orange...zones.red:
-                return secondColor
-            default:
-                return firstColor
-            }
-        } else {
-            switch self {
-            case 0...zones.orange:
-                return firstColor
-            case zones.orange...zones.red:
-                return secondColor
-            default:
-                return thirdColor
-            }
-        }
+        let value = reversed ? 1 - self : self
+        let orange = reversed ? 1 - zones.red : zones.orange
+        let red = reversed ? 1 - zones.orange : zones.red
+        return Severity.of(value, fair: max(orange - 0.2, 0), warning: orange, critical: red).color
     }
     
     func batteryColor(color: Bool = false, lowPowerMode: Bool? = nil) -> NSColor {
         if let mode = lowPowerMode, mode {
             return NSColor.systemOrange
         }
-        
-        switch self {
-        case 0.2...0.4:
-            if !color {
-                return NSColor.textColor
-            }
-            return NSColor.systemOrange
-        case 0.4...1:
-            if self == 1 {
-                return NSColor.textColor
-            }
-            if !color {
-                return NSColor.textColor
-            }
-            return NSColor.systemGreen
-        default:
-            return NSColor.systemRed
+        let severity = Severity.battery(self * 100)
+        // in monochrome mode only warn when the battery is getting low
+        if !color && (severity == .good || severity == .fair) {
+            return NSColor.textColor
         }
+        if self == 1 && !color {
+            return NSColor.textColor
+        }
+        return severity.color
     }
     
     func batteryColorV2(lowPowerMode: Bool = false) -> NSColor {
         if lowPowerMode {
             return NSColor.systemOrange
         }
-        switch self {
-        case 0.2...0.4:
-            return NSColor.systemOrange
-        case 0.4...1:
-            return NSColor.systemGreen
-        default:
-            return NSColor.systemRed
-        }
+        return Severity.battery(self * 100).color
     }
     
     func secondsToHoursMinutesSeconds() -> (Int, Int) {

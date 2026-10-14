@@ -1,5 +1,5 @@
-APP = Stats
-BUNDLE_ID = eu.exelban.$(APP)
+APP = Status
+BUNDLE_ID = app.status.$(APP)
 
 BUILD_PATH = $(PWD)/build
 APP_PATH = "$(BUILD_PATH)/$(APP).app"
@@ -7,19 +7,25 @@ ZIP_PATH = "$(BUILD_PATH)/$(APP).zip"
 WIDGET_PATH = "$(BUILD_PATH)/$(APP).app/Contents/PlugIns/WidgetsExtension.appex"
 
 .SILENT: archive notarize sign verify prepare-dmg prepare-dSYM clean next-version check history disk smc leveldb
-.PHONY: build archive notarize sign verify prepare-dmg prepare-dSYM clean next-version check history open smc leveldb test-smc
+.PHONY: install build archive notarize sign verify prepare-dmg prepare-dSYM clean next-version check history open smc leveldb test-smc
 
 build: test-smc clean next-version archive notarize sign verify prepare-dmg prepare-dSYM open
 
-# --- MAIN WORLFLOW FUNCTIONS --- #
+# Build, sign (Developer ID) and install into /Applications without notarizing.
+install: clean archive
+	osascript -e 'quit app "Status"' >/dev/null 2>&1 || true
+	ditto $(APP_PATH) /Applications/$(APP).app
+	open /Applications/$(APP).app
+
+# --- MAIN WORKFLOW FUNCTIONS --- #
 
 archive: test-smc clean
-	osascript -e 'display notification "Exporting application archive..." with title "Build the Stats"'
+	osascript -e 'display notification "Exporting application archive..." with title "Build Status"'
 	echo "Exporting application archive..."
 
 	xcodebuild \
   		-scheme $(APP) \
-  		-destination 'platform=OS X,arch=x86_64' \
+  		-destination 'generic/platform=macOS' \
   		-configuration Release archive \
   		-archivePath $(BUILD_PATH)/$(APP).xcarchive
 
@@ -35,22 +41,22 @@ archive: test-smc clean
 	echo "Project archived successfully"
 
 notarize:
-	osascript -e 'display notification "Submitting app for notarization..." with title "Build the Stats"'
+	osascript -e 'display notification "Submitting app for notarization..." with title "Build Status"'
 	echo "Submitting app for notarization..."
 
-	xcrun notarytool submit --keychain-profile "AC_PASSWORD" --wait $(ZIP_PATH)
+	xcrun notarytool submit --keychain-profile "STATUS_NOTARY" --wait $(ZIP_PATH)
 
-	echo "Stats successfully notarized"
+	echo "Status successfully notarized"
 
 sign:
-	osascript -e 'display notification "Stampling the Stats..." with title "Build the Stats"'
+	osascript -e 'display notification "Stapling Status..." with title "Build Status"'
 	echo "Going to staple an application..."
 
 	xcrun stapler staple $(APP_PATH)
 	spctl -a -t exec -vvv $(APP_PATH)
 
-	osascript -e 'display notification "Stats successfully stapled" with title "Build the Stats"'
-	echo "Stats successfully stapled"
+	osascript -e 'display notification "Status successfully stapled" with title "Build Status"'
+	echo "Status successfully stapled"
 
 verify:
 	echo "Verifying widget extension..."
@@ -60,7 +66,7 @@ verify:
 		exit 1; \
 	fi
 
-	marketingVersion=$$(/usr/libexec/PlistBuddy -c "print :objects:9A141107229E721200D29793:buildSettings:MARKETING_VERSION" "$(PWD)/Stats.xcodeproj/project.pbxproj") ;\
+	marketingVersion=$$(/usr/libexec/PlistBuddy -c "print :objects:9A141107229E721200D29793:buildSettings:MARKETING_VERSION" "$(PWD)/Status.xcodeproj/project.pbxproj") ;\
 	appShort=$$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" "$(BUILD_PATH)/$(APP).app/Contents/Info.plist") ;\
 	appBuild=$$(/usr/libexec/PlistBuddy -c "Print CFBundleVersion" "$(BUILD_PATH)/$(APP).app/Contents/Info.plist") ;\
 	widgetShort=$$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" "$(BUILD_PATH)/$(APP).app/Contents/PlugIns/WidgetsExtension.appex/Contents/Info.plist") ;\
@@ -89,12 +95,12 @@ prepare-dmg:
 
 	./create-dmg/create-dmg \
 	    --volname $(APP) \
-	    --background "./Stats/Supporting Files/background.png" \
+	    --background "./Status/Supporting Files/background.png" \
 	    --window-pos 200 120 \
 	    --window-size 500 320 \
 	    --icon-size 80 \
-	    --icon "Stats.app" 125 175 \
-	    --hide-extension "Stats.app" \
+	    --icon "Status.app" 125 175 \
+	    --hide-extension "Status.app" \
 	    --app-drop-link 375 175 \
 	    --no-internet-enable \
 	    $(PWD)/$(APP).dmg \
@@ -104,7 +110,7 @@ prepare-dmg:
 
 prepare-dSYM:
 	echo "Zipping dSYMs..."
-	cd $(BUILD_PATH)/Stats.xcarchive/dSYMs && zip -r $(PWD)/dSYMs.zip .
+	cd $(BUILD_PATH)/Status.xcarchive/dSYMs && zip -r $(PWD)/dSYMs.zip .
 	echo "Created zip with dSYMs"
 
 # --- HELPERS --- #
@@ -115,23 +121,23 @@ test-smc:
 clean:
 	rm -rf $(BUILD_PATH)
 	if [ -a $(PWD)/dSYMs.zip ]; then rm $(PWD)/dSYMs.zip; fi;
-	if [ -a $(PWD)/Stats.dmg ]; then rm $(PWD)/Stats.dmg; fi;
+	if [ -a $(PWD)/Status.dmg ]; then rm $(PWD)/Status.dmg; fi;
 
 next-version:
-	versionNumber=$$(/usr/libexec/PlistBuddy -c "Print CFBundleVersion" "$(PWD)/Stats/Supporting Files/Info.plist") ;\
+	versionNumber=$$(/usr/libexec/PlistBuddy -c "Print CFBundleVersion" "$(PWD)/Status/Supporting Files/Info.plist") ;\
 	echo "Actual version is: $$versionNumber" ;\
 	versionNumber=$$((versionNumber + 1)) ;\
 	echo "Next version is: $$versionNumber" ;\
-	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $$versionNumber" "$(PWD)/Stats/Supporting Files/Info.plist" ;\
+	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $$versionNumber" "$(PWD)/Status/Supporting Files/Info.plist" ;\
 
 check:
-	xcrun notarytool log 2d0045cc-8f0d-4f4c-ba6f-728895fd064a --keychain-profile "AC_PASSWORD"
+	xcrun notarytool log 2d0045cc-8f0d-4f4c-ba6f-728895fd064a --keychain-profile "STATUS_NOTARY"
 
 history:
-	xcrun notarytool history --keychain-profile "AC_PASSWORD"
+	xcrun notarytool history --keychain-profile "STATUS_NOTARY"
 
 open:
-	osascript -e 'display notification "Stats signed and ready for distribution" with title "Build the Stats"'
+	osascript -e 'display notification "Status signed and ready for distribution" with title "Build Status"'
 	echo "Opening working folder..."
 	open $(PWD)
 

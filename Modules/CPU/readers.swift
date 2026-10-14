@@ -1,16 +1,11 @@
 //
 //  readers.swift
-//  CPU
-//
-//  Created by Serhiy Mytrovtsiy on 10/04/2020.
-//  Using Swift 5.0.
-//  Running on macOS 10.15.
-//
-//  Copyright © 2020 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Cocoa
 import Kit
+import IOKit.pwr_mgt
 
 internal class LoadReader: Reader<CPU_Load> {
     private var cpuInfo: processor_info_array_t!
@@ -191,65 +186,22 @@ public class ProcessReader: Reader<[TopProcess]> {
         self.setInterval(Store.shared.int(key: "\(self.title)_updateTopInterval", defaultValue: 1))
     }
     
+    // kernel counters instead of spawning `ps`: cheaper, and it keeps working on a heavily loaded Mac
+    private let sampler = ProcessCPUSampler()
+    
     public override func read() {
         if self.numberOfProcesses == 0 {
             return
         }
         
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/bin/ps")
-        task.arguments = ["-Aceo pid,pcpu,comm", "-r"]
-        
-        let outputPipe = Pipe()
-        let errorPipe = Pipe()
-        
-        defer {
-            outputPipe.fileHandleForReading.closeFile()
-            errorPipe.fileHandleForReading.closeFile()
-        }
-        
-        task.standardOutput = outputPipe
-        task.standardError = errorPipe
-        
-        do {
-            try task.run()
-        } catch let err {
-            error("error read ps: \(err.localizedDescription)", log: self.log)
-            return
-        }
-        
-        let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
-        let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-        let output = String(data: outputData, encoding: .utf8)
-        _ = String(data: errorData, encoding: .utf8)
-        guard let output, !output.isEmpty else { return }
-        
-        var index = 0
-        var processes: [TopProcess] = []
-        output.enumerateLines { (line, stop) in
-            if index != 0 {
-                let str = line.trimmingCharacters(in: .whitespaces)
-                let pidFind = str.findAndCrop(pattern: "^\\d+")
-                let usageFind = pidFind.remain.findAndCrop(pattern: "^[0-9,.]+ ")
-                let command = usageFind.remain.trimmingCharacters(in: .whitespaces)
-                let pid = Int(pidFind.cropped) ?? 0
-                let usage = Double(usageFind.cropped.replacingOccurrences(of: ",", with: ".")) ?? 0
-                
-                var name: String = command
-                if let app = NSRunningApplication(processIdentifier: pid_t(pid)), let n = app.localizedName {
-                    name = n
-                }
-                if command.contains("com.apple.Virtua") && name.contains("Docker") {
-                    name = "Docker"
-                }
-                
-                processes.append(TopProcess(pid: pid, name: name, usage: usage))
+        let processes: [TopProcess] = self.sampler.sample(limit: self.numberOfProcesses).map { p in
+            var name = p.name
+            if name.hasPrefix("com.apple.Virtua"), (p.path ?? "").contains("Docker") {
+                name = "Docker"
             }
-            
-            if index == self.numberOfProcesses { stop = true }
-            index += 1
+            return TopProcess(pid: p.pid, name: name, usage: (p.cpu * 10).rounded() / 10)
         }
-        
+        guard !processes.isEmpty else { return }
         self.callback(processes)
     }
 }
@@ -543,41 +495,20 @@ public class FrequencyReader: Reader<CPU_Frequency> {
 public class LimitReader: Reader<CPU_Limit> {
     private var limits: CPU_Limit = CPU_Limit()
     
+    // Reads the same data as `pmset -g therm` straight from IOKit, without spawning a process.
     public override func read() {
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/bin/pmset")
-        task.arguments = ["-g", "therm"]
+        var status: Unmanaged<CFDictionary>?
+        guard IOPMCopyCPUPowerStatus(&status) == kIOReturnSuccess,
+              let dict = status?.takeRetainedValue() as? [String: Any] else { return }
         
-        let outputPipe = Pipe()
-        defer {
-            outputPipe.fileHandleForReading.closeFile()
+        if let value = dict[kIOPMCPUPowerLimitSchedulerTimeKey] as? Int {
+            self.limits.scheduler = value
         }
-        task.standardOutput = outputPipe
-        
-        do {
-            try task.run()
-        } catch let err {
-            error("error read pmset: \(err.localizedDescription)", log: self.log)
-            return
+        if let value = dict[kIOPMCPUPowerLimitProcessorCountKey] as? Int {
+            self.limits.cpus = value
         }
-        
-        let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
-        guard let str = String(data: outputData, encoding: .utf8) else { return }
-        var lines = str.split(separator: "\n")
-        guard lines.count > 3 else { return }
-        lines.removeFirst(3)
-        
-        lines.forEach { (line: Substring) in
-            guard let value = Int(line.components(separatedBy: CharacterSet.decimalDigits.inverted).joined()) else {
-                return
-            }
-            if line.contains("Scheduler") {
-                self.limits.scheduler = value
-            } else if line.contains("CPUs") {
-                self.limits.cpus = value
-            } else if line.contains("Speed") {
-                self.limits.speed = value
-            }
+        if let value = dict[kIOPMCPUPowerLimitProcessorSpeedKey] as? Int {
+            self.limits.speed = value
         }
         
         self.callback(self.limits)
@@ -593,42 +524,12 @@ public class AverageLoadReader: Reader<CPU_AverageLoad> {
     }
     
     public override func read() {
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/bin/uptime")
+        var list = [Double](repeating: 0, count: 3)
+        guard getloadavg(&list, 3) == 3 else { return }
         
-        let outputPipe = Pipe()
-        defer {
-            outputPipe.fileHandleForReading.closeFile()
-        }
-        task.standardOutput = outputPipe
-        
-        do {
-            try task.run()
-        } catch let err {
-            error("error read uptime: \(err.localizedDescription)", log: self.log)
-            return
-        }
-        
-        let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
-        guard let raw = String(data: outputData, encoding: .utf8), let line = raw.split(separator: "\n").first else {
-            return
-        }
-        
-        let str = line.trimmingCharacters(in: .whitespaces)
-        let strFind = str.findAndCrop(pattern: "(\\d+(.|,)\\d+ *){3}$")
-        let strArr = strFind.cropped.split(separator: " ")
-        guard strArr.count == 3 else { return }
-        
-        var list: [Double] = []
-        strArr.forEach { (n: Substring) in
-            let value = Double(n.replacingOccurrences(of: ",", with: ".")) ?? 0
-            list.append(value)
-        }
-        guard list.count == 3 else { return }
-        
-        self.load.load1 = list[0]
-        self.load.load5 = list[1]
-        self.load.load15 = list[2]
+        self.load.load1 = list[0].rounded(toPlaces: 2)
+        self.load.load5 = list[1].rounded(toPlaces: 2)
+        self.load.load15 = list[2].rounded(toPlaces: 2)
         
         self.callback(self.load)
     }

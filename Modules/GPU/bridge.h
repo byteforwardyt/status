@@ -1,12 +1,6 @@
 //
 //  bridge.h
-//  GPU
-//
-//  Created by Serhiy Mytrovtsiy on 02/04/2026
-//  Using Swift 6.0
-//  Running on macOS 15.1
-//
-//  Copyright © 2026 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 #ifndef bridge_h

@@ -1,12 +1,6 @@
 //
 //  readers.swift
-//  Sensors
-//
-//  Created by Serhiy Mytrovtsiy on 17/06/2020.
-//  Using Swift 5.0.
-//  Running on macOS 10.15.
-//
-//  Copyright © 2020 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Cocoa
@@ -145,12 +139,38 @@ internal class SensorsReader: Reader<Sensors_List> {
         return results
     }
     
+    /// Keys used by menu bar widgets and alerts; supplied by the module.
+    public var essentialKeys: (() -> Set<String>)? = nil
+    
+    private static let powerKeys: Set<String> = ["CPU Power", "GPU Power", "ANE Power", "RAM Power", "PCI Power"]
+    
+    /// When nothing shows the full sensor list, only read what widgets/alerts need (plus inputs of computed values).
+    /// Returns nil when every sensor must be read.
+    private func keysToRead(_ sensors: [Sensor_p]) -> Set<String>? {
+        guard !self.hasVisibleConsumer,
+              !Store.shared.bool(key: "CombinedModules", defaultValue: false),
+              var keys = self.essentialKeys?() else { return nil }
+        keys.insert("PSTR") // keeps the energy integral of "Total System Consumption" continuous
+        if keys.contains("Average CPU") || keys.contains("Hottest CPU") {
+            keys.formUnion(sensors.filter({ $0.group == .CPU && $0.type == .temperature && $0.average }).map({ $0.key }))
+        }
+        if keys.contains("Average GPU") || keys.contains("Hottest GPU") {
+            keys.formUnion(sensors.filter({ $0.group == .GPU && $0.type == .temperature && $0.average }).map({ $0.key }))
+        }
+        if keys.contains("Fastest fan") {
+            keys.formUnion(sensors.filter({ $0.type == .fan && !$0.isComputed }).map({ $0.key }))
+        }
+        return keys
+    }
+    
     public override func read() {
         var sensors = self.list.sensors
+        let readKeys = self.keysToRead(sensors)
         
         for i in sensors.indices {
             guard sensors[i].group != .hid && !sensors[i].isComputed else { continue }
             if !self.unknownSensorsState && sensors[i].group == .unknown { continue }
+            if let readKeys, !readKeys.contains(sensors[i].key) { continue }
             
             var newValue = SMC.shared.getValue(sensors[i].key) ?? 0
             if sensors[i].type == .temperature && sensors[i].group == .CPU &&
@@ -165,7 +185,11 @@ internal class SensorsReader: Reader<Sensors_List> {
         let fanSensors = sensors.filter({ $0.type == .fan && !$0.isComputed })
         
         #if arch(arm64)
-        if self.HIDState {
+        let needsHID = readKeys.map { keys in
+            keys.contains("Average CPU") || keys.contains("Hottest CPU") || keys.contains("Average GPU") || keys.contains("Hottest GPU") ||
+            sensors.contains(where: { $0.group == .hid && keys.contains($0.key) })
+        } ?? true
+        if self.HIDState && needsHID {
             for typ in SensorsReader.HIDtypes {
                 let (page, usage, type) = self.m1Preset(type: typ)
                 AppleSiliconSensors(page, usage, type).forEach { (key, value) in
@@ -195,7 +219,7 @@ internal class SensorsReader: Reader<Sensors_List> {
             }
         }
         
-        if let (cpu, gpu, ane, ram, pci) = self.IOSensors() {
+        if readKeys.map({ !$0.isDisjoint(with: SensorsReader.powerKeys) }) ?? true, let (cpu, gpu, ane, ram, pci) = self.IOSensors() {
             if let idx = sensors.firstIndex(where: { $0.key == "CPU Power" }) {
                 sensors[idx].value = cpu
             }

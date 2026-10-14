@@ -1,12 +1,6 @@
 //
 //  DB.swift
-//  Kit
-//
-//  Created by Serhiy Mytrovtsiy on 03/02/2024
-//  Using Swift 5.0
-//  Running on macOS 14.3
-//
-//  Copyright © 2024 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Foundation
@@ -15,7 +9,7 @@ public class DB {
     public static let shared = DB()
     
     private var lldb: LLDB? = nil
-    private let queue = DispatchQueue(label: "eu.exelban.db")
+    private let queue = DispatchQueue(label: "app.status.db")
     private let ttl: Int = 60*60
     
     public var _writeTS: [String: Date] = [:]
@@ -32,8 +26,8 @@ public class DB {
     
     init() {
         let fileManager = FileManager.default
-        let supportPath = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.appendingPathComponent("Stats")
-        let tmpPath = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("Stats")
+        let supportPath = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.appendingPathComponent("Status")
+        let tmpPath = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("Status")
         
         try? fileManager.createDirectory(at: supportPath, withIntermediateDirectories: true, attributes: nil)
         try? fileManager.createDirectory(at: tmpPath, withIntermediateDirectories: true, attributes: nil)

@@ -1,12 +1,6 @@
 //
-//  store.swift
-//  Kit
-//
-//  Created by Serhiy Mytrovtsiy on 10/04/2020.
-//  Using Swift 5.0.
-//  Running on macOS 10.15.
-//
-//  Copyright © 2020 Serhiy Mytrovtsiy. All rights reserved.
+//  Store.swift
+//  Status
 //
 
 import Cocoa
@@ -15,7 +9,7 @@ public class Store {
     public static let shared = Store()
     private let defaults = UserDefaults.standard
     private var cache: [String: Any] = [:]
-    private let cacheQueue = DispatchQueue(label: "eu.exelban.Stats.Store.cache", attributes: .concurrent)
+    private let cacheQueue = DispatchQueue(label: "app.status.Status.Store.cache", attributes: .concurrent)
     
     public init() {
         self.loadCache()

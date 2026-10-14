@@ -1,12 +1,6 @@
 //
 //  preview.swift
-//  Stats
-//
-//  Created by Serhiy Mytrovtsiy on 09/03/2026
-//  Using Swift 6.0
-//  Running on macOS 26.3
-//
-//  Copyright © 2026 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Cocoa

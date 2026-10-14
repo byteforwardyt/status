@@ -28,13 +28,15 @@
 			</dict>
 			<key>Order</key>
 			<integer>1</integer>
+			<key>Color</key>
+			<string>utilization</string>
 		</dict>
 		<key>line_chart</key>
 		<dict>
 			<key>Default</key>
 			<false/>
 			<key>Color</key>
-			<string>systemAccent</string>
+			<string>utilization</string>
 			<key>Order</key>
 			<integer>2</integer>
 		</dict>
@@ -47,7 +49,7 @@
 			<key>Box</key>
 			<true/>
 			<key>Color</key>
-			<string>systemAccent</string>
+			<string>utilization</string>
 			<key>Preview</key>
 			<dict>
 				<key>Label</key>

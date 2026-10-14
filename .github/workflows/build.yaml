@@ -3,9 +3,11 @@ name: build
 on:
   push:
     branches:
+      - main
       - master
   pull_request:
     branches:
+      - main
       - master
 
 concurrency:
@@ -18,4 +20,4 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
-      - run: xcodebuild -scheme Stats -destination 'platform=macOS' -configuration Release archive CODE_SIGNING_ALLOWED=NO
+      - run: xcodebuild -scheme Status -destination 'platform=macOS' -configuration Release archive CODE_SIGNING_ALLOWED=NO

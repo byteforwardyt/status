@@ -1,12 +1,6 @@
 //
 //  widgets.swift
-//  WidgetsExtension
-//
-//  Created by Serhiy Mytrovtsiy on 30/06/2024
-//  Using Swift 5.0
-//  Running on macOS 14.5
-//
-//  Copyright © 2024 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import SwiftUI
@@ -27,5 +21,6 @@ struct WidgetsBundle: WidgetBundle {
         DiskWidget()
         NetworkWidget()
         UnitedWidget()
+        HealthWidget()
     }
 }

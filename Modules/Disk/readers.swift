@@ -1,12 +1,6 @@
 //
 //  readers.swift
-//  Disk
-//
-//  Created by Serhiy Mytrovtsiy on 07/05/2020.
-//  Using Swift 5.0.
-//  Running on macOS 10.15.
-//
-//  Copyright © 2020 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Cocoa
@@ -384,7 +378,7 @@ struct io {
 }
 
 public class ProcessReader: Reader<[Disk_process]> {
-    private let queue = DispatchQueue(label: "eu.exelban.Disk.processReader")
+    private let queue = DispatchQueue(label: "app.status.Disk.processReader")
     
     private var _list: [Int32: io] = [:]
     private var list: [Int32: io] {

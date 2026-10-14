@@ -1,18 +1,12 @@
 //
 //  main.swift
-//  Memory
-//
-//  Created by Serhiy Mytrovtsiy on 12/04/2020.
-//  Using Swift 5.0.
-//  Running on macOS 10.15.
-//
-//  Copyright © 2020 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Cocoa
 import Kit
 
-public struct RAM_Usage: Codable, RemoteType {
+public struct RAM_Usage: Codable {
     var total: Double
     var used: Double
     var free: Double
@@ -33,11 +27,6 @@ public struct RAM_Usage: Codable, RemoteType {
     
     public var usage: Double {
         get { Double((self.total - self.free) / self.total) }
-    }
-    
-    public func remote() -> Data? {
-        let string = "\(self.total),\(self.used),\(self.pressure.level),\(self.swap.used)$"
-        return string.data(using: .utf8)
     }
 }
 
@@ -147,6 +136,8 @@ public class RAM: Module {
     
     private func loadCallback(_ raw: RAM_Usage?) {
         guard let value = raw, self.enabled else { return }
+        HealthMonitor.shared.report(.memoryUsage, value.usage)
+        HealthMonitor.shared.report(.memoryPressure, value.pressure.value == .critical ? 2 : (value.pressure.value == .warning ? 1 : 0))
         
         self.popupView.loadCallback(value)
         self.portalView.callback(value)

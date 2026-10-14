@@ -1,13 +1,7 @@
 //
 //  reader.swift
-//  Stats
+//  Status
 //
-//  Created by Serhiy Mytrovtsiy on 05/03/2026
-//  Using Swift 6.0
-//  Running on macOS 26.3
-//
-//  Copyright © 2026 Serhiy Mytrovtsiy. All rights reserved.
-//  
 
 import Foundation
 import Kit
@@ -15,8 +9,8 @@ import Kit
 internal class ClockReader: Reader<Date> {
     private let title: String = ModuleType.clock.stringValue
     
-    private let queue = DispatchQueue(label: "eu.exelban.Stats.Clock.ntp.sync", qos: .default)
-    private let requestQueue = DispatchQueue(label: "eu.exelban.Stats.Clock.ntp.request", qos: .utility)
+    private let queue = DispatchQueue(label: "app.status.Status.Clock.ntp.sync", qos: .default)
+    private let requestQueue = DispatchQueue(label: "app.status.Status.Clock.ntp.request", qos: .utility)
     private var _offset: TimeInterval = 0
     private var offset: TimeInterval {
         get { self.queue.sync { self._offset } }

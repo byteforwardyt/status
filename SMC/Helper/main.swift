@@ -1,12 +1,6 @@
 //
 //  main.swift
-//  Helper
-//
-//  Created by Serhiy Mytrovtsiy on 17/11/2022
-//  Using Swift 5.0
-//  Running on macOS 13.0
-//
-//  Copyright © 2022 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Foundation
@@ -47,7 +41,7 @@ final class HelperConnectionState {
 
 class Helper: NSObject, NSXPCListenerDelegate, HelperProtocol {
     private let listener: NSXPCListener
-    private let smcQueue = DispatchQueue(label: "eu.exelban.Stats.SMC.Helper.smcQueue")
+    private let smcQueue = DispatchQueue(label: "app.status.Status.SMC.Helper.smcQueue")
     
     private let connectionState = HelperConnectionState()
     private var shouldQuitCheckInterval = 1.0
@@ -55,7 +49,7 @@ class Helper: NSObject, NSXPCListenerDelegate, HelperProtocol {
     private var smc: String? = nil
     
     override init() {
-        self.listener = NSXPCListener(machServiceName: "eu.exelban.Stats.SMC.Helper")
+        self.listener = NSXPCListener(machServiceName: "app.status.Status.SMC.Helper")
         super.init()
         self.listener.delegate = self
     }
@@ -113,7 +107,7 @@ class Helper: NSObject, NSXPCListenerDelegate, HelperProtocol {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
         process.qualityOfService = QualityOfService.userInitiated
-        process.arguments = ["unload", "/Library/LaunchDaemons/eu.exelban.Stats.SMC.Helper.plist"]
+        process.arguments = ["unload", "/Library/LaunchDaemons/app.status.Status.SMC.Helper.plist"]
         do {
             try process.run()
             process.waitUntilExit()
@@ -127,14 +121,14 @@ class Helper: NSObject, NSXPCListenerDelegate, HelperProtocol {
         }
         
         do {
-            try FileManager.default.removeItem(at: URL(fileURLWithPath: "/Library/LaunchDaemons/eu.exelban.Stats.SMC.Helper.plist"))
+            try FileManager.default.removeItem(at: URL(fileURLWithPath: "/Library/LaunchDaemons/app.status.Status.SMC.Helper.plist"))
         } catch let err {
             NSLog("plist deletion: \(err)")
         }
         NSLog("property list deleted")
         
         do {
-            try FileManager.default.removeItem(at: URL(fileURLWithPath: "/Library/PrivilegedHelperTools/eu.exelban.Stats.SMC.Helper"))
+            try FileManager.default.removeItem(at: URL(fileURLWithPath: "/Library/PrivilegedHelperTools/app.status.Status.SMC.Helper"))
         } catch let err {
             NSLog("helper deletion: \(err)")
         }
@@ -244,7 +238,7 @@ extension Helper {
     
     func uninstall() {
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/Library/PrivilegedHelperTools/eu.exelban.Stats.SMC.Helper")
+        process.executableURL = URL(fileURLWithPath: "/Library/PrivilegedHelperTools/app.status.Status.SMC.Helper")
         process.qualityOfService = QualityOfService.userInitiated
         process.arguments = ["uninstall", String(getpid())]
         do {

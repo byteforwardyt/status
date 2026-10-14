@@ -1,9 +1,6 @@
 //
 //  main.swift
-//  LaunchAtLogin
-//
-//  Created by Serhiy Mytrovtsiy on 08/04/2020.
-//  Copyright © 2020 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Cocoa

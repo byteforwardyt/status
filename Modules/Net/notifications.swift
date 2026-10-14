@@ -1,13 +1,7 @@
 //
 //  notifications.swift
-//  Net
+//  Status
 //
-//  Created by Serhiy Mytrovtsiy on 25/01/2025
-//  Using Swift 6.0
-//  Running on macOS 15.1
-//
-//  Copyright © 2025 Serhiy Mytrovtsiy. All rights reserved.
-//  
 
 import Cocoa
 import Kit

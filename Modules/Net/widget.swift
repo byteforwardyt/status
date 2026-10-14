@@ -1,13 +1,7 @@
 //
 //  widget.swift
-//  Net
+//  Status
 //
-//  Created by Serhiy Mytrovtsiy on 30/07/2024
-//  Using Swift 5.0
-//  Running on macOS 14.5
-//
-//  Copyright © 2024 Serhiy Mytrovtsiy. All rights reserved.
-//  
 
 import SwiftUI
 import WidgetKit
@@ -19,7 +13,7 @@ public struct Network_entry: TimelineEntry {
     public static var snapshot: Network_entry = Network_entry(value: Network_Usage(
         bandwidth: Bandwidth(upload: 1_238_400, download: 18_732_000),
         raddr: Network_addr(v4: "192.168.0.1"),
-        interface: Network_interface(displayName: "Stats"),
+        interface: Network_interface(displayName: "Status"),
         status: true
     ), isPreview: true)
     
@@ -33,7 +27,7 @@ public struct Network_entry: TimelineEntry {
 public struct Provider: TimelineProvider {
     public typealias Entry = Network_entry
     
-    private let userDefaults: UserDefaults? = UserDefaults(suiteName: "\(Bundle.main.object(forInfoDictionaryKey: "TeamId") as! String).eu.exelban.Stats.widgets")
+    private let userDefaults: UserDefaults? = UserDefaults(suiteName: "\(Bundle.main.object(forInfoDictionaryKey: "TeamId") as! String).app.status.Status.widgets")
     
     public var systemWidgetsUpdatesState: Bool {
         self.userDefaults?.bool(forKey: "systemWidgetsUpdates_state") ?? false

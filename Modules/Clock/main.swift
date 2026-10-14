@@ -1,12 +1,6 @@
 //
 //  main.swift
-//  Clock
-//
-//  Created by Serhiy Mytrovtsiy on 23/03/2023
-//  Using Swift 5.0
-//  Running on macOS 13.2
-//
-//  Copyright © 2023 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Foundation
@@ -62,7 +56,7 @@ public struct Clock_t: Codable {
         Clock_t.formatter(format: self.format, tz: self.tz, calendarKey: self.calendar).string(from: self.value ?? Date())
     }
     
-    private static let formattersQueue = DispatchQueue(label: "eu.exelban.Stats.Clock.formatters")
+    private static let formattersQueue = DispatchQueue(label: "app.status.Status.Clock.formatters")
     private static var formatters: [String: DateFormatter] = [:]
     
     private static func formatter(format: String, tz: String, calendarKey: String) -> DateFormatter {
@@ -111,7 +105,7 @@ public class Clock: Module {
             return objectsDecoded
         }
     }
-    private static let listQueue = DispatchQueue(label: "eu.exelban.Stats.Clock.list")
+    private static let listQueue = DispatchQueue(label: "app.status.Status.Clock.list")
     private static var cachedList: (raw: Data, list: [Clock_t])? = nil
     
     public init() {

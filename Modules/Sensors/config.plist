@@ -36,6 +36,8 @@
 			</array>
 			<key>Order</key>
 			<integer>1</integer>
+			<key>Color</key>
+			<string>utilization</string>
 		</dict>
 		<key>sensors</key>
 		<dict>
@@ -47,20 +49,20 @@
 				<string>38°,41°</string>
 			</dict>
 			<key>Order</key>
-			<integer>2</integer>
+			<integer>3</integer>
 		</dict>
 		<key>bar_chart</key>
 		<dict>
 			<key>Default</key>
 			<false/>
 			<key>Title</key>
-			<string>FAN</string>
+			<string>TEMP</string>
 			<key>Preview</key>
 			<dict>
 				<key>Value</key>
-				<string>0.36,0.3</string>
+				<string>0.58,0.47</string>
 				<key>Color</key>
-				<true/>
+				<string>utilization</string>
 			</dict>
 			<key>Unsupported colors</key>
 			<array>
@@ -68,14 +70,23 @@
 				<string>cluster</string>
 			</array>
 			<key>Order</key>
-			<integer>3</integer>
+			<integer>4</integer>
+			<key>Color</key>
+			<string>utilization</string>
 		</dict>
 		<key>icon</key>
 		<dict>
 			<key>Default</key>
 			<false/>
 			<key>Order</key>
-			<integer>4</integer>
+			<integer>5</integer>
+		</dict>
+		<key>temperatures</key>
+		<dict>
+			<key>Default</key>
+			<false/>
+			<key>Order</key>
+			<integer>2</integer>
 		</dict>
 	</dict>
 	<key>Settings</key>

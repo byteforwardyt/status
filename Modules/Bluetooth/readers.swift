@@ -1,12 +1,6 @@
 //
 //  readers.swift
-//  Bluetooth
-//
-//  Created by Serhiy Mytrovtsiy on 08/06/2021.
-//  Using Swift 5.0.
-//  Running on macOS 10.15.
-//
-//  Copyright © 2021 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Foundation
@@ -39,7 +33,7 @@ internal class DevicesReader: Reader<[BLEDevice]>, CBCentralManagerDelegate, CBP
     
     private var characteristicsDict: [UUID: CBCharacteristic] = [:]
     private var bleLevels: [UUID: KeyValue_t] = [:]
-    private let stateQueue = DispatchQueue(label: "eu.exelban.Stats.Bluetooth.DevicesReader")
+    private let stateQueue = DispatchQueue(label: "app.status.Status.Bluetooth.DevicesReader")
     
     private var profilerCache: (ts: Date, value: ([bleDevice], [String]))? = nil
     private var pmsetCache: (ts: Date, value: [bleDevice])? = nil

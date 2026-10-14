@@ -1,12 +1,6 @@
 //
 //  process.swift
-//  Kit
-//
-//  Created by Serhiy Mytrovtsiy on 05/01/2024
-//  Using Swift 5.0
-//  Running on macOS 14.3
-//
-//  Copyright © 2024 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Cocoa
@@ -271,7 +265,7 @@ public class ProcessView: NSStackView {
     
     @objc private func kill() {
         if let pid = self.pid {
-            _ = syncShell("kill -9 \(pid)")
+            _ = Darwin.kill(pid_t(pid), SIGKILL)
             self.clear()
             self.setLock(false)
         }

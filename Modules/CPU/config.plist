@@ -34,13 +34,15 @@
 			</array>
 			<key>Order</key>
 			<integer>1</integer>
+			<key>Color</key>
+			<string>utilization</string>
 		</dict>
 		<key>line_chart</key>
 		<dict>
 			<key>Default</key>
 			<false/>
 			<key>Color</key>
-			<string>systemAccent</string>
+			<string>utilization</string>
 			<key>Unsupported colors</key>
 			<array>
 				<string>pressure</string>
@@ -65,6 +67,8 @@
 			</array>
 			<key>Order</key>
 			<integer>3</integer>
+			<key>Color</key>
+			<string>utilization</string>
 		</dict>
 		<key>pie_chart</key>
 		<dict>

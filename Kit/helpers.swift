@@ -1,14 +1,7 @@
 //
 //  helpers.swift
-//  Kit
+//  Status
 //
-//  Created by Serhiy Mytrovtsiy on 29/09/2020.
-//  Using Swift 5.0.
-//  Running on macOS 10.15.
-//
-//  Copyright © 2020 Serhiy Mytrovtsiy. All rights reserved.
-//
-// swiftlint:disable file_length
 
 import Cocoa
 import ServiceManagement
@@ -291,9 +284,9 @@ public class ValueField: NSTextField {
         self.canDrawSubviewsIntoLayer = true
         
         self.stringValue = value
-        self.textColor = .textColor
+        self.textColor = .labelColor
         self.alignment = .trailing
-        self.font = NSFont.systemFont(ofSize: 13, weight: .regular)
+        self.font = Theme.valueFont()
         
         self.cell?.usesSingleLineMode = true
     }
@@ -319,9 +312,15 @@ public class StatusBadgeView: NSStackView {
         }
         return NSColor.secondaryLabelColor.cgColor
     }
+    private var textColor: NSColor {
+        if let status {
+            return status ? .systemGreen : .systemRed
+        }
+        return .secondaryLabelColor
+    }
     private var label: String {
         if let status {
-            return status ? localizedString(self.ok) : localizedString(self.notOk)
+            return (status ? localizedString(self.ok) : localizedString(self.notOk)).uppercased()
         }
         return ""
     }
@@ -337,14 +336,15 @@ public class StatusBadgeView: NSStackView {
         self.distribution = .fill
         self.spacing = 0
         self.wantsLayer = true
-        self.layer?.cornerRadius = 4
-        self.layer?.backgroundColor = self.color
+        self.layer?.cornerRadius = frame.height / 2
+        self.layer?.cornerCurve = .continuous
+        self.layer?.backgroundColor = self.color.copy(alpha: 0.18)
         
         self.labelField.autoresizingMask = [.width, .height]
         self.labelField.alignment = .center
-        self.labelField.textColor = .white
+        self.labelField.textColor = self.textColor
         self.labelField.stringValue = self.label
-        self.labelField.font = NSFont.systemFont(ofSize: 11, weight: .light)
+        self.labelField.font = NSFont.systemFont(ofSize: 9.5, weight: .bold)
         
         self.addArrangedSubview(self.labelField)
     }
@@ -357,7 +357,8 @@ public class StatusBadgeView: NSStackView {
         guard self.status != value else { return }
         self.status = value
         self.labelField.stringValue = self.label
-        self.layer?.backgroundColor = self.color
+        self.labelField.textColor = self.textColor
+        self.layer?.backgroundColor = self.color.copy(alpha: 0.18)
     }
 }
 
@@ -398,46 +399,31 @@ public func separatorView(_ title: String, origin: NSPoint = NSPoint(x: 0, y: 0)
     
     let labelView: NSTextField = NSTextField(labelWithString: "")
     labelView.translatesAutoresizingMaskIntoConstraints = false
-    labelView.alignment = .center
     labelView.isBezeled = false
     labelView.isEditable = false
     labelView.drawsBackground = false
     labelView.attributedStringValue = NSAttributedString(string: title.uppercased(), attributes: [
-        .font: NSFont.systemFont(ofSize: 10, weight: .semibold),
-        .foregroundColor: NSColor.tertiaryLabelColor,
-        .kern: 1.0
+        .font: Theme.sectionFont,
+        .foregroundColor: NSColor.secondaryLabelColor,
+        .kern: 0.6
     ])
     labelView.setContentHuggingPriority(.required, for: .horizontal)
     labelView.setContentCompressionResistancePriority(.required, for: .horizontal)
     
-    let leftLine: NSView = NSView()
-    leftLine.translatesAutoresizingMaskIntoConstraints = false
-    leftLine.wantsLayer = true
-    leftLine.layer?.backgroundColor = NSColor.separatorColor.cgColor
+    let line: NSView = HairlineView()
+    line.translatesAutoresizingMaskIntoConstraints = false
     
-    let rightLine: NSView = NSView()
-    rightLine.translatesAutoresizingMaskIntoConstraints = false
-    rightLine.wantsLayer = true
-    rightLine.layer?.backgroundColor = NSColor.separatorColor.cgColor
-    
-    view.addSubview(leftLine)
     view.addSubview(labelView)
-    view.addSubview(rightLine)
+    view.addSubview(line)
     
-    let gap: CGFloat = 8
     NSLayoutConstraint.activate([
-        labelView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-        labelView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+        labelView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 2),
+        labelView.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -5),
         
-        leftLine.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-        leftLine.trailingAnchor.constraint(equalTo: labelView.leadingAnchor, constant: -gap),
-        leftLine.centerYAnchor.constraint(equalTo: view.centerYAnchor),
-        leftLine.heightAnchor.constraint(equalToConstant: 1),
-        
-        rightLine.leadingAnchor.constraint(equalTo: labelView.trailingAnchor, constant: gap),
-        rightLine.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -rightInset),
-        rightLine.centerYAnchor.constraint(equalTo: view.centerYAnchor),
-        rightLine.heightAnchor.constraint(equalToConstant: 1)
+        line.leadingAnchor.constraint(equalTo: labelView.trailingAnchor, constant: 8),
+        line.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -rightInset),
+        line.centerYAnchor.constraint(equalTo: labelView.centerYAnchor),
+        line.heightAnchor.constraint(equalToConstant: 1)
     ])
     
     return view
@@ -660,91 +646,6 @@ public func syncShell(_ args: String) -> String {
     let output = String(data: data, encoding: .utf8) ?? ""
     
     return output
-}
-
-public func isNewestVersion(currentVersion: String, latestVersion: String) -> Bool {
-    let currentNumber = currentVersion.replacingOccurrences(of: "v", with: "")
-    let latestNumber = latestVersion.replacingOccurrences(of: "v", with: "")
-    
-    let currentArray = currentNumber.condenseWhitespace().split(separator: ".")
-    let latestArray = latestNumber.condenseWhitespace().split(separator: ".")
-    let component: ([Substring], Int) -> Int = { arr, i in
-        arr.indices.contains(i) ? Int(arr[i]) ?? 0 : 0
-    }
-    
-    var current = Version(major: component(currentArray, 0), minor: component(currentArray, 1), patch: component(currentArray, 2))
-    var latest = Version(major: component(latestArray, 0), minor: component(latestArray, 1), patch: component(latestArray, 2))
-    
-    if let patch = currentArray.last, patch.contains("-") {
-        let arr = patch.split(separator: "-")
-        if let patchNumber = arr.first {
-            current.patch = Int(patchNumber) ?? 0
-        }
-        if let beta = arr.last {
-            current.beta = Int(beta.replacingOccurrences(of: "beta", with: "")) ?? 0
-        }
-    }
-    
-    if let patch = latestArray.last, patch.contains("-") {
-        let arr = patch.split(separator: "-")
-        if let patchNumber = arr.first {
-            latest.patch = Int(patchNumber) ?? 0
-        }
-        if let beta = arr.last {
-            latest.beta = Int(beta.replacingOccurrences(of: "beta", with: "")) ?? 0
-        }
-    }
-    
-    // current is not beta + latest is not beta
-    if current.beta == nil && latest.beta == nil {
-        if latest.major > current.major {
-            return true
-        }
-        
-        if latest.minor > current.minor && latest.major >= current.major {
-            return true
-        }
-        
-        if latest.patch > current.patch && latest.minor >= current.minor && latest.major >= current.major {
-            return true
-        }
-    }
-    
-    // current version is beta + last version is not beta
-    if current.beta != nil && latest.beta == nil {
-        if latest.major > current.major {
-            return true
-        }
-        
-        if latest.minor > current.minor && latest.major >= current.major {
-            return true
-        }
-        
-        if latest.patch >= current.patch && latest.minor >= current.minor && latest.major >= current.major {
-            return true
-        }
-    }
-    
-    // current version is beta + last version is beta
-    if current.beta != nil && latest.beta != nil {
-        if latest.major > current.major {
-            return true
-        }
-        
-        if latest.minor > current.minor && latest.major >= current.major {
-            return true
-        }
-        
-        if latest.patch >= current.patch && latest.minor >= current.minor && latest.major >= current.major {
-            return true
-        }
-        
-        if latest.beta! > current.beta! && latest.patch >= current.patch && latest.minor >= current.minor && latest.major >= current.major {
-            return true
-        }
-    }
-    
-    return false
 }
 
 public func showNotification(title: String, subtitle: String? = nil, userInfo: [AnyHashable: Any] = [:], delegate: UNUserNotificationCenterDelegate? = nil) -> String {
@@ -1122,8 +1023,8 @@ public enum SMCHelperInstallState {
 public class SMCHelper {
     public static let shared = SMCHelper()
     
-    private let id: String = "eu.exelban.Stats.SMC.Helper"
-    private let plistName: String = "eu.exelban.Stats.SMC.Helper.plist"
+    private let id: String = "app.status.Status.SMC.Helper"
+    private let plistName: String = "app.status.Status.SMC.Helper.plist"
     
     public var isInstalled: Bool {
         if #available(macOS 13, *) {
@@ -1146,7 +1047,7 @@ public class SMCHelper {
     }
     
     private var legacyIsInstalled: Bool {
-        syncShell("ls /Library/PrivilegedHelperTools/").contains(self.id)
+        FileManager.default.fileExists(atPath: "/Library/PrivilegedHelperTools/\(self.id)")
     }
     
     private var connection: NSXPCConnection? = nil
@@ -1188,7 +1089,7 @@ public class SMCHelper {
             }
         }
         
-        let helperURL = Bundle.main.bundleURL.appendingPathComponent("Contents/Library/LaunchServices/eu.exelban.Stats.SMC.Helper")
+        let helperURL = Bundle.main.bundleURL.appendingPathComponent("Contents/Library/LaunchServices/app.status.Status.SMC.Helper")
         guard let helperBundleInfo = CFBundleCopyInfoDictionaryForURL(helperURL as CFURL) as? [String: Any],
               let helperVersion = helperBundleInfo["CFBundleShortVersionString"] as? String else {
             print("SMC helper update check skipped: cannot read bundled helper version at \(helperURL.path)")
@@ -1314,7 +1215,7 @@ public class SMCHelper {
         }
         
         var error: Unmanaged<CFError>?
-        if SMJobBless(kSMDomainSystemLaunchd, "eu.exelban.Stats.SMC.Helper" as CFString, authRef, &error) == false {
+        if SMJobBless(kSMDomainSystemLaunchd, "app.status.Status.SMC.Helper" as CFString, authRef, &error) == false {
             let blessError = error!.takeRetainedValue() as Error
             print("Error while installing the Helper: \(blessError.localizedDescription)")
             completion(.failed)
@@ -1330,7 +1231,7 @@ public class SMCHelper {
             return self.connection
         }
         
-        let connection = NSXPCConnection(machServiceName: "eu.exelban.Stats.SMC.Helper", options: .privileged)
+        let connection = NSXPCConnection(machServiceName: "app.status.Status.SMC.Helper", options: .privileged)
         connection.exportedObject = self
         connection.remoteObjectInterface = NSXPCInterface(with: HelperProtocol.self)
         connection.invalidationHandler = { [weak self] in
@@ -1701,13 +1602,15 @@ public class PreferencesSection: NSStackView {
         
         self.container.orientation = .vertical
         self.container.wantsLayer = true
-        self.container.layer?.backgroundColor = NSColor.quaternaryLabelColor.withAlphaComponent(0.025).cgColor
-        self.container.layer?.cornerRadius = Constants.Settings.margin
+        self.container.layer?.cornerRadius = Theme.cardRadius
+        self.container.layer?.cornerCurve = .continuous
+        self.container.layer?.borderWidth = 1
+        self.updateCardColors()
         self.container.edgeInsets = NSEdgeInsets(
             top: Constants.Settings.margin/1.25,
-            left: Constants.Settings.margin,
+            left: Constants.Settings.margin * 1.4,
             bottom: Constants.Settings.margin/1.25,
-            right: Constants.Settings.margin
+            right: Constants.Settings.margin * 1.4
         )
         self.container.spacing = Constants.Settings.margin/1.25
         self.addArrangedSubview(self.container)
@@ -1722,23 +1625,35 @@ public class PreferencesSection: NSStackView {
     }
     
     public override func updateLayer() {
-        self.container.layer?.backgroundColor = NSColor.quaternaryLabelColor.withAlphaComponent(0.025).cgColor
+        self.updateCardColors()
+    }
+    
+    public override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        self.updateCardColors()
+    }
+    
+    private func updateCardColors() {
+        self.effectiveAppearance.performAsCurrentDrawingAppearance {
+            self.container.layer?.backgroundColor = Theme.cardBackground.cgColor
+            self.container.layer?.borderColor = Theme.cardBorder.cgColor
+        }
     }
     
     private func addHeader(title: String, subtitle: String) {
         let view = NSStackView()
-        view.heightAnchor.constraint(equalToConstant: 26).isActive = true
+        view.heightAnchor.constraint(equalToConstant: 28).isActive = true
         
         let space = NSView()
-        space.widthAnchor.constraint(equalToConstant: 4).isActive = true
+        space.widthAnchor.constraint(equalToConstant: 6).isActive = true
         
         let firstField: NSTextField = TextView()
-        firstField.font = NSFont.systemFont(ofSize: 12, weight: .medium)
+        firstField.font = NSFont.systemFont(ofSize: 13, weight: .semibold)
         firstField.stringValue = title
         
         let secondField: NSTextField = TextView()
         secondField.font = NSFont.systemFont(ofSize: 11, weight: .regular)
-        secondField.textColor = .placeholderTextColor
+        secondField.textColor = .secondaryLabelColor
         secondField.stringValue = subtitle
         self.subtitleField = secondField
         
@@ -1811,17 +1726,21 @@ private class PreferencesSeparator: NSView {
     public init() {
         super.init(frame: .zero)
         self.wantsLayer = true
-        self.layer?.backgroundColor = NSColor.separatorColor.withAlphaComponent(0.05).cgColor
         self.heightAnchor.constraint(equalToConstant: 1).isActive = true
         self.identifier = NSUserInterfaceItemIdentifier("PreferencesSeparator")
+        self.updateLayer()
     }
     
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
     
+    public override var wantsUpdateLayer: Bool { true }
+    
     public override func updateLayer() {
-        self.layer?.backgroundColor = NSColor.separatorColor.withAlphaComponent(0.05).cgColor
+        self.effectiveAppearance.performAsCurrentDrawingAppearance {
+            self.layer?.backgroundColor = Theme.hairline.cgColor
+        }
     }
 }
 
@@ -1875,14 +1794,14 @@ public class PreferencesRow: NSStackView {
         
         if let title {
             let field: NSTextField = TextView()
-            field.font = NSFont.systemFont(ofSize: 12, weight: .regular)
+            field.font = NSFont.systemFont(ofSize: 13, weight: .regular)
             field.stringValue = title
             view.addArrangedSubview(field)
         }
         
         if let description {
             let field: NSTextField = TextView()
-            field.font = NSFont.systemFont(ofSize: 12, weight: .regular)
+            field.font = NSFont.systemFont(ofSize: 11, weight: .regular)
             field.textColor = .secondaryLabelColor
             field.stringValue = description
             view.addArrangedSubview(field)
@@ -2285,7 +2204,7 @@ public class GPUStressTest {
 public final class SystemWidgetUpdates {
     public static let shared = SystemWidgetUpdates()
     
-    private let queue = DispatchQueue(label: "eu.exelban.Stats.SystemWidgetUpdates", qos: .utility)
+    private let queue = DispatchQueue(label: "app.status.Status.SystemWidgetUpdates", qos: .utility)
     private let encoder = JSONEncoder()
     private let interval: TimeInterval
     private var pending: [String: () -> [String]] = [:]
@@ -2441,7 +2360,7 @@ public class ColorBlock: NSView {
         
         self.wantsLayer = true
         self.layer?.backgroundColor = (color != nil ? color! : NSColor.lightGray.withAlphaComponent(0.75)).cgColor
-        self.layer?.cornerRadius = 3
+        self.layer?.cornerRadius = 5
         
         if let toolTip {
             self.toolTip = toolTip
@@ -2480,8 +2399,9 @@ public class PopupButton: NSButton {
         
         self.translatesAutoresizingMaskIntoConstraints = false
         self.wantsLayer = true
-        self.layer?.cornerRadius = Constants.Popup.radius
-        self.contentTintColor = .lightGray
+        self.layer?.cornerRadius = 5
+        self.layer?.cornerCurve = .continuous
+        self.contentTintColor = .secondaryLabelColor
         self.layer?.backgroundColor = NSColor.clear.cgColor
         
         self.bezelStyle = .regularSquare
@@ -2517,11 +2437,31 @@ public class PopupButton: NSButton {
         guard let currentState else { return }
         
         if currentState {
-            self.contentTintColor = .white
-            self.layer?.backgroundColor = NSColor.controlAccentColor.cgColor
+            self.contentTintColor = .controlAccentColor
+            self.layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.18).cgColor
         } else {
-            self.contentTintColor = .lightGray
+            self.contentTintColor = .secondaryLabelColor
             self.layer?.backgroundColor = NSColor.clear.cgColor
+        }
+    }
+}
+
+/// 1px divider whose color follows the current light/dark appearance.
+public class HairlineView: NSView {
+    public init() {
+        super.init(frame: .zero)
+        self.wantsLayer = true
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    public override var wantsUpdateLayer: Bool { true }
+    
+    public override func updateLayer() {
+        self.effectiveAppearance.performAsCurrentDrawingAppearance {
+            self.layer?.backgroundColor = Theme.hairline.cgColor
         }
     }
 }
@@ -2533,37 +2473,31 @@ public class SeparatorView: NSStackView {
         self.orientation = .horizontal
         self.alignment = .centerY
         self.distribution = .fill
-        self.spacing = Constants.Popup.margins
+        self.spacing = 8
+        self.edgeInsets = NSEdgeInsets(top: 6, left: 2, bottom: 0, right: 0)
         self.translatesAutoresizingMaskIntoConstraints = false
         
         let labelView: NSTextField = NSTextField(labelWithString: "")
-        labelView.alignment = .center
         labelView.isBezeled = false
         labelView.isEditable = false
         labelView.drawsBackground = false
         labelView.attributedStringValue = NSAttributedString(string: label.uppercased(), attributes: [
-            .font: NSFont.systemFont(ofSize: 10, weight: .semibold),
-            .foregroundColor: NSColor.tertiaryLabelColor,
-            .kern: 1.0
+            .font: Theme.sectionFont,
+            .foregroundColor: NSColor.secondaryLabelColor,
+            .kern: 0.6
         ])
         labelView.setContentHuggingPriority(.required, for: .horizontal)
         labelView.setContentCompressionResistancePriority(.required, for: .horizontal)
         
-        let leftLine = self.line()
-        let rightLine = self.line()
-        
-        self.addArrangedSubview(leftLine)
         self.addArrangedSubview(labelView)
-        self.addArrangedSubview(rightLine)
+        self.addArrangedSubview(self.line())
         
         if let button {
             self.addArrangedSubview(button)
         }
         
         NSLayoutConstraint.activate([
-            self.heightAnchor.constraint(equalToConstant: Constants.Popup.separatorHeight),
-            labelView.centerXAnchor.constraint(equalTo: self.centerXAnchor),
-            labelView.centerYAnchor.constraint(equalTo: self.centerYAnchor)
+            self.heightAnchor.constraint(equalToConstant: Constants.Popup.separatorHeight)
         ])
     }
     
@@ -2572,54 +2506,9 @@ public class SeparatorView: NSStackView {
     }
     
     private func line() -> NSView {
-        let view: NSView = NSView()
-        view.wantsLayer = true
-        view.layer?.backgroundColor = NSColor.separatorColor.cgColor
+        let view: NSView = HairlineView()
         view.setContentHuggingPriority(.defaultLow, for: .horizontal)
         view.heightAnchor.constraint(equalToConstant: 1).isActive = true
         return view
-    }
-}
-
-public struct UserContext {
-    public static func isScreenLocked() -> Bool {
-        guard let dict = CGSessionCopyCurrentDictionary() as NSDictionary? else { return false }
-        return (dict["CGSSessionScreenIsLocked"] as? Bool) ?? false
-    }
-    
-    public static func secondsSinceLastInput() -> Double {
-        let types: [CGEventType] = [.keyDown, .mouseMoved, .leftMouseDown, .rightMouseDown, .otherMouseDown, .scrollWheel]
-        return types.map { CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: $0) }.min() ?? 0
-    }
-    
-    public static func busyReason() -> String? {
-        if self.isFocusEnabled() {
-            return "focus is enabled"
-        }
-        if self.isDisplaySleepPrevented() {
-            return "display sleep is prevented"
-        }
-        return nil
-    }
-    
-    private static func isDisplaySleepPrevented() -> Bool {
-        var raw: Unmanaged<CFDictionary>?
-        guard IOPMCopyAssertionsStatus(&raw) == kIOReturnSuccess,
-              let dict = raw?.takeRetainedValue() as? [String: Int] else { return false }
-        let types = [kIOPMAssertionTypePreventUserIdleDisplaySleep as String, kIOPMAssertionTypeNoDisplaySleep as String]
-        return types.contains { (dict[$0] ?? 0) > 0 }
-    }
-    
-    private static func isFocusEnabled() -> Bool {
-        let path = NSHomeDirectory() + "/Library/DoNotDisturb/DB/Assertions.json"
-        if let data = FileManager.default.contents(atPath: path) {
-            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let list = json["data"] as? [[String: Any]] else { return false }
-            return list.contains { entry in
-                guard let records = entry["storeAssertionRecords"] as? [[String: Any]] else { return false }
-                return !records.isEmpty
-            }
-        }
-        return CFPreferencesCopyAppValue("NSStatusItem Visible FocusModes" as CFString, "com.apple.controlcenter" as CFString) as? Bool ?? false
     }
 }

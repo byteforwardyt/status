@@ -86,7 +86,7 @@ def run():
     names = re.findall(r"^    func (test\w+)\(\)", tests, re.MULTILINE)
     if not names or len(names) != len(set(names)):
         raise RuntimeError("Missing or duplicate tests")
-    with tempfile.TemporaryDirectory(prefix="stats-smc-tests-") as directory:
+    with tempfile.TemporaryDirectory(prefix="status-smc-tests-") as directory:
         build = Path(directory)
         (build / "SMCUnderTest.swift").write_text(source)
         (build / "HelperUnderTest.swift").write_text(helper_source())

@@ -1,12 +1,6 @@
 //
 //  widget.swift
-//  GPU
-//
-//  Created by Serhiy Mytrovtsiy on 17/07/2024
-//  Using Swift 5.0
-//  Running on macOS 14.5
-//
-//  Copyright © 2024 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import SwiftUI
@@ -28,7 +22,7 @@ public struct GPU_entry: TimelineEntry {
 public struct Provider: TimelineProvider {
     public typealias Entry = GPU_entry
     
-    private let userDefaults: UserDefaults? = UserDefaults(suiteName: "\(Bundle.main.object(forInfoDictionaryKey: "TeamId") as! String).eu.exelban.Stats.widgets")
+    private let userDefaults: UserDefaults? = UserDefaults(suiteName: "\(Bundle.main.object(forInfoDictionaryKey: "TeamId") as! String).app.status.Status.widgets")
     
     public var systemWidgetsUpdatesState: Bool {
         self.userDefaults?.bool(forKey: "systemWidgetsUpdates_state") ?? false

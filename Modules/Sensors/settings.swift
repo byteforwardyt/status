@@ -1,12 +1,6 @@
 //
 //  settings.swift
-//  Sensors
-//
-//  Created by Serhiy Mytrovtsiy on 23/06/2020.
-//  Using Swift 5.0.
-//  Running on macOS 10.15.
-//
-//  Copyright © 2020 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Cocoa
@@ -30,7 +24,7 @@ internal class Settings: NSStackView, Settings_v {
     private let title: String
     private var list: [Sensor_p] = []
     private var sensorsPrefs: PreferencesSection?
-    private var selectedSensor: String = "Average System Total"
+    private var selectedSensor: String = "Average CPU"
     
     public init(_ module: ModuleType) {
         self.title = module.stringValue
@@ -72,6 +66,22 @@ internal class Settings: NSStackView, Settings_v {
             ))
         ]))
         
+        let thresholds: [KeyValue_t] = CoolingController.thresholds.map {
+            KeyValue_t(key: "\($0)", value: temperature(Double($0)))
+        }
+        self.addArrangedSubview(PreferencesSection(title: localizedString("Cooling mode"), [
+            PreferencesRow(
+                localizedString("Cooling mode"),
+                localizedString("Full fan speed while the CPU is hot, then back to automatic"),
+                component: switchView(action: #selector(self.toggleCooling), state: CoolingController.isEnabled)
+            ),
+            PreferencesRow(localizedString("Start cooling at"), component: selectView(
+                action: #selector(self.changeCoolingThreshold),
+                items: thresholds,
+                selected: "\(CoolingController.threshold)"
+            ))
+        ]))
+        
         var sensorsRows: [PreferencesRow] = [
             PreferencesRow(localizedString("Show unknown sensors"), component: switchView(
                 action: #selector(self.toggleuUnknownSensors),
@@ -92,6 +102,20 @@ internal class Settings: NSStackView, Settings_v {
         let sensorsPrefs = PreferencesSection(sensorsRows)
         self.sensorsPrefs = sensorsPrefs
         self.addArrangedSubview(sensorsPrefs)
+    }
+    
+    @objc private func toggleCooling(_ sender: NSControl) {
+        let state = controlState(sender)
+        CoolingController.isEnabled = state
+        // fan control needs the privileged helper; macOS asks for an admin password once
+        if state && !SMCHelper.shared.isInstalled {
+            SMCHelper.shared.install { _ in }
+        }
+    }
+    
+    @objc private func changeCoolingThreshold(_ sender: NSMenuItem) {
+        guard let key = sender.representedObject as? String, let value = Int(key) else { return }
+        CoolingController.threshold = value
     }
     
     required init?(coder: NSCoder) {

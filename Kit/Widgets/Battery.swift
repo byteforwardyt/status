@@ -1,12 +1,6 @@
 //
 //  Battery.swift
-//  Kit
-//
-//  Created by Serhiy Mytrovtsiy on 06/06/2020.
-//  Using Swift 5.0.
-//  Running on macOS 10.15.
-//
-//  Copyright © 2020 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Cocoa
@@ -545,10 +539,15 @@ public class BatteryDetailsWidget: WidgetWrapper {
             }
             width = self.drawOneRow(value: value, x: x).rounded(.up)
         case "time":
-            width = self.drawOneRow(
-                value: Double(time*60).printSecondsToHoursMinutesSeconds(short: isShortTimeFormat),
-                x: x
-            ).rounded(.up)
+            // time is unknown while plugged in or still being estimated; show the level instead of "n/a"
+            if time <= 0, let percentage {
+                width = self.drawOneRow(value: "\(Int((percentage.rounded(toPlaces: 2)) * 100))%", x: x).rounded(.up)
+            } else {
+                width = self.drawOneRow(
+                    value: Double(time*60).printSecondsToHoursMinutesSeconds(short: isShortTimeFormat),
+                    x: x
+                ).rounded(.up)
+            }
         case "percentageAndTime":
             var value = "n/a"
             if let percentage {

@@ -1,9 +1,6 @@
 //
 //  module.swift
-//  Kit
-//
-//  Created by Serhiy Mytrovtsiy on 09/04/2020.
-//  Copyright © 2020 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Cocoa
@@ -88,7 +85,7 @@ open class Module {
         get { Store.shared.int(key: "\(self.name)_position", defaultValue: 0) }
         set { Store.shared.set(key: "\(self.name)_position", value: newValue) }
     }
-    public var userDefaults: UserDefaults? = UserDefaults(suiteName: "\(Bundle.main.object(forInfoDictionaryKey: "TeamId") as! String).eu.exelban.Stats.widgets")
+    public var userDefaults: UserDefaults? = UserDefaults(suiteName: "\(Bundle.main.object(forInfoDictionaryKey: "TeamId") as! String).app.status.Status.widgets")
     
     public var popupKeyboardShortcut: [UInt16] { self.popupView?.keyboardShortcut ?? [] }
     
@@ -104,6 +101,12 @@ open class Module {
     private var readers: [Reader_p] = []
     private var popupVisible = false
     private var settingsVisible = false
+    private var displayAsleep = false
+    
+    // Readers are paused while all displays sleep. Modules whose readers compute
+    // counters/deltas across reads (network totals, disk throughput) or must keep
+    // firing notifications (battery) override this to keep running.
+    open var pauseWhenDisplaySleeps: Bool { true }
     
     private var pauseState: Bool {
         get { Store.shared.bool(key: "pause", defaultValue: false) }
@@ -150,6 +153,10 @@ open class Module {
         NotificationCenter.default.addObserver(self, selector: #selector(listenForPopupToggle), name: .togglePopup, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(listenForToggleWidget), name: .toggleWidget, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(listenForWindowOpen), name: .openWindow, object: nil)
+        if self.pauseWhenDisplaySleeps {
+            NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(screensDidSleep), name: NSWorkspace.screensDidSleepNotification, object: nil)
+            NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(screensDidWake), name: NSWorkspace.screensDidWakeNotification, object: nil)
+        }
         
         // swiftlint:disable empty_count
         if self.config.widgetsConfig.count != 0 {
@@ -173,6 +180,7 @@ open class Module {
     
     deinit {
         NotificationCenter.default.removeObserver(self)
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
     }
     
     // load function which call when app start
@@ -256,6 +264,21 @@ open class Module {
                 self.menuBar.append(widget)
             }
         }
+    }
+    
+    @objc private func screensDidSleep() {
+        guard self.enabled, !self.displayAsleep else { return }
+        self.displayAsleep = true
+        self.readers.forEach { $0.pause() }
+        debug("Display asleep, readers paused", log: self.log)
+    }
+    
+    @objc private func screensDidWake() {
+        guard self.displayAsleep else { return }
+        self.displayAsleep = false
+        guard self.enabled else { return }
+        self.startReaders()
+        debug("Display awake, readers resumed", log: self.log)
     }
     
     // call when popup appear/disappear
@@ -395,5 +418,17 @@ open class Module {
         if !isEmpty && !self.enabled {
             NotificationCenter.default.post(name: .toggleModule, object: nil, userInfo: ["module": self.config.name, "state": true])
         }
+        // give a newly shown widget the latest reading right away (after it is attached to the menu bar)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+            guard let self, self.enabled else { return }
+            self.readers.forEach { $0.replay() }
+        }
     }
 }
+
+#if DEBUG
+extension Module {
+    /// Debug-only access used by the `--snapshot` UI capture mode.
+    public var debugPopupWindow: NSWindow? { self.popup }
+}
+#endif

@@ -1,167 +1,108 @@
-# Stats
+# Status
 
-<a href="https://github.com/exelban/stats/releases"><p align="center"><img src="https://github.com/exelban/stats/raw/master/Stats/Supporting%20Files/Assets.xcassets/AppIcon.appiconset/icon_256x256.png" width="120"></p></a>
+<p align="center"><img src="Status/Supporting%20Files/Assets.xcassets/AppIcon.appiconset/icon_256x256.png" width="128" alt="Status"></p>
 
-[![Stats](https://cdn.mac-stats.com/assets/images/menus.png)](https://github.com/exelban/stats/releases)
-[![Stats](https://cdn.mac-stats.com/assets/images/popups.png)](https://github.com/exelban/stats/releases)
+Status is a macOS menu bar monitor. It shows CPU, GPU, memory, disk, network, sensors, battery, and Bluetooth. No account, no subscription, no telemetry.
 
-macOS system monitor in your menu bar
+<p align="center">
+  <a href="https://github.com/byteforwardyt/status/releases/latest/download/Status.dmg"><img src="docs/images/download-macos.svg" alt="Download Status for macOS" height="52"></a>
+</p>
 
-## Installation
-### Manual
-You can download the latest version [here](https://github.com/exelban/stats/releases/latest/download/Stats.dmg).
-This will download a file called `Stats.dmg`. Open it and move the app to the application folder.
+[Download Status.dmg](https://github.com/byteforwardyt/status/releases/latest/download/Status.dmg) · macOS 12 or newer · Apple silicon and Intel · [All releases](https://github.com/byteforwardyt/status/releases)
 
-### Homebrew
-To install it using Homebrew, open the Terminal app and type:
-```bash
-brew install stats
-```
-
-### Headless (SSH)
-To install Stats remotely over SSH and set it up as a remote monitoring agent, run:
-```bash
-curl -fsSL https://cdn.mac-stats.com/install.sh | bash
-```
-The script installs the app, enables the Remote module and prints a URL with an authorization code - open it on any device and sign in to your System Stats account to authorize the machine. After that Stats starts streaming metrics to your account and is registered to launch automatically at login and restart if it stops.
-The Mac needs an active user session (a locked screen is fine) to run the app; on a fully headless machine Stats will start at the next login.
-
-### Uninstall
-Run the uninstall script bundled with the app (requires administrator privileges to remove the SMC helper):
-```bash
-sh /Applications/Stats.app/Contents/Resources/Scripts/uninstall.sh
-```
-
-### Legacy version
-Legacy version for older systems could be found [here](https://mac-stats.com/downloads).
-
-## Requirements
-Stats is supported on macOS 12 (Monterey) and newer.
-Beta versions of macOS are not supported - only stable releases.
+The release disk image is signed and notarized.
 
 ## Features
-Stats is an application that allows you to monitor your macOS system.
 
- - CPU utilization
- - GPU utilization
- - Memory usage
- - Disk utilization
- - Network usage
- - Battery level
- - Fan's control (not maintained)
- - Sensors information (Temperature/Voltage/Power)
- - Bluetooth devices
- - Multiple time zone clock
+- **Menu bar.** Turn on the modules you want. A health dot is on by default. Minimal mode hides the other icons and keeps the dot.
+- **CPU, GPU, memory, disk.** Usage, temperature, pressure, swap, throughput, and S.M.A.R.T.
+- **Network.** Upload and download speed, totals, the active interface, Wi-Fi signal, packet loss, latency, peak speeds, daily totals, and which apps used the network.
+- **Connections.** Live TCP and UDP connections. Each app is marked Apple, Developer ID, or unverified. This does not ask for an admin password.
+- **Sensors and fans.** Temperatures, voltages, power, a temperature chart, and an optional cooling mode.
+- **Battery and Bluetooth.** Level, health, cycles, power use, and battery levels of connected devices.
+- **Clock.** Time in more than one time zone.
+- **Health.** Short notes when the Mac is hot, busy, or low on disk. Alerts, a 7-day history, and a Mac Health widget.
+- **Shortcuts.** Ask for Mac health, temperature, CPU, or memory. This needs macOS 13.
+- **Storage hints.** On demand, Status measures caches and developer folders. It does not scan Desktop, Documents, or Downloads.
 
-## FAQs
+macOS widgets need macOS 14. The Mac Health widget is one of them.
 
-### How do you change the order of the menu bar icons?
-macOS decides the order of the menu bar items not `Stats` - it may change after the first reboot after installing Stats.
+## What changed from Stats
 
-To change the order of any menu bar icon - macOS Mojave (version 10.14) and up.
+Status is a fork of [Stats](https://github.com/exelban/stats) by Serhiy Mytrovtsiy. The same modules are still there. The fork changes how the app behaves and what it adds.
 
-1. Hold down ⌘ (command key).
-2. Drag the icon to the desired position on the menu bar.
-3. Release ⌘ (command key)
+**The updater, donation prompts, and cloud Remote module are gone.** Status does not check a server for updates, and it does not send analytics.
 
-### Stats icons do not appear in the menu bar
-macOS 26 introduced a new privacy control under System Settings → Menu Bar. Apps must be explicitly allowed there to display menu bar items. If Stats is running with at least one module active and one widget enabled, but none of its icons show up in the menu bar, this is almost certainly the cause. More details you can find [here](https://github.com/exelban/stats/issues/3120).
+**The interface is easier to scan.** Popups use a glass background on current macOS. Settings uses cards, with an icon next to each module. Numbers can be green, yellow, orange, or red. That coloring is a switch in app settings, and it can be turned off.
 
-**Solution:** open **System Settings → Menu Bar** and toggle **Stats** ON.
+**It does less work when you are not looking at it.** Process lists come from the kernel (`libproc`) instead of launching `ps`. When the full sensor list is not on screen, Status reads only the sensors a widget or alert needs. Most readers pause while every display is asleep. Network, disk, and battery keep running, because their totals and alerts depend on the next reading. The primary network interface is cached for 5 seconds instead of being looked up on every tick.
 
-### Desktop widgets not showing the data
-Due to a problem with high data load in the system process (`chronod`) responsible for communication between the app and widgets, communication is disabled by default on the Stats side. To enable it, the `macOS widgets` option must be enabled in the Stats settings. More details you can find [here](https://github.com/exelban/stats/issues/2733).
+**Network shows more than speed.** Packet loss, latency, jitter, session peaks, 62 days of daily totals, 31 days of per-app totals, Wi-Fi signal quality, and a connections window that checks each app's code signature.
 
-**Solution:** open **Stats Settings** and toggle **macOS widgets** ON.
+**Heat has its own controls.** A CPU and GPU temperature widget, a temperature bar, and cooling mode. Cooling mode is off until you turn it on. At the temperature you pick (70, 75, 80, 85, or 90°C) it sets every fan to full speed, then hands control back to macOS after the CPU has cooled by 8 degrees. Fan control needs the SMC helper. macOS asks for an admin password once to install it.
 
-### Wi-Fi network name shows Unknown
-macOS requires Location Services permission to read the Wi-Fi network name. If access for Stats is disabled, the network name may show as `Unknown` without a permission popup.
+**Health is a first-class view, not a pile of graphs.** It explains the likely reason the Mac is hot or busy, stores 7 days of per-minute averages and peaks, and can sit in the menu bar as one dot. Shortcuts and the Mac Health widget answer from readings Status already has. They do not send those readings anywhere.
 
-**Solution:** open **System Settings → Privacy & Security → Location Services**, make sure Location Services is enabled, and toggle **Stats** ON. Then quit and reopen Stats.
+## Install
 
-### How to reduce energy impact or CPU usage of Stats?
-Stats tries to be efficient as it's possible. But reading some data periodically is not a cheap task. Each module has its own "price". So, if you want to reduce energy impact from the Stats you need to disable some Stats modules. The most inefficient modules are Sensors and Bluetooth. Disabling these modules could reduce CPU usage and power efficiency by up to 50% in some cases.
+1. Download [Status.dmg](https://github.com/byteforwardyt/status/releases/latest/download/Status.dmg).
+2. Open it and drag **Status** into **Applications**.
+3. Open Status. The first launch shows Status Setup.
+4. After that, Status stays in the menu bar. It does not show a Dock icon unless you turn that on in settings.
 
-### Fan control
-Fan control is in legacy mode. It does not receive any updates or fixes. It's not dropped from the app just because in the old Macs it works pretty acceptable. I'm open to accepting fixed or improvements (via PR) for this feature in case someone would like to help with that. But have no option and time to provide support for this feature.
+Click a menu bar icon to open its popup. The sliders button in the popup opens that module's settings. The health dot opens a short health summary. From there you can open History.
 
-### Sensors show incorrect CPU/GPU core count
-CPU/GPU sensors are simply thermal zones (sensors) on the CPU/GPU. They have no relation to the number of cores or specific cores.
-For example, a CPU is typically divided into two clusters: efficiency and performance. Each cluster contains multiple temperature sensors, and Stats simply displays these sensors. However, "CPU Efficient Core 1" does not represent the temperature of a single efficient core—it only indicates one of the temperature sensors within the efficiency core cluster.
-Additionally, with each new SoC, Apple changes the sensor keys. As a result, it takes time to determine which SMC values correspond to the appropriate sensors. If anyone knows how to accurately match the sensors for Apple Silicon, please contact me.
+Wi-Fi network name needs Location permission. Bluetooth battery levels need Bluetooth permission.
 
-### App crash – what to do?
-First, ensure that you are using the latest version of Stats. There is a high chance that a fix preventing the crash has already been released. If you are already running the latest version, check the open issues. Only if none of the existing issues address your problem should you open a new issue.
+## Build from source
 
-### Why my issue was closed without any response?
-Most probably because it's a duplicated issue and there is an answer to the question, report, or proposition. Please use a search by closed issues to get an answer.
-So, if your issue was closed without any response, most probably it already has a response.
+You need Xcode.
 
-### External API
-Stats does not collect any telemetry or analytics. The only external requests it makes are to the following APIs:
+```bash
+make install
+```
 
-- https://api.mac-stats.com – For update checks and retrieving the public IP address
-- https://api.github.com – Fallback for update checks
+That archives a Release build, signs it, copies it to `/Applications/Status.app`, and opens it. The project does not include an Apple team id. Set your own team in the Xcode project, and add that team id to `exportOptions.plist`, before running this.
 
-Both of these APIs are used to check for updates. Additionally, an external request is required to obtain the public IP address. I do not want to use any third-party providers for retrieving the public IP address, so I use my own server for this purpose.
+To compile without signing:
 
-If you have concerns about these requests, you have a few options:
+```bash
+xcodebuild -scheme Status -destination 'platform=macOS' -configuration Release archive CODE_SIGNING_ALLOWED=NO -archivePath build/Status.xcarchive
+```
 
-- propose a PR that allows these features to work without an external server
-- block both of these servers using any network filtering app (if you're reading this, you're likely using something like Little Snitch, so you can easily do this). In this case do not expect to receive any updates or see your public IP in the network module.
+`make build` also notarizes. It expects a notarytool keychain profile named `STATUS_NOTARY`. Create that once with `xcrun notarytool store-credentials STATUS_NOTARY`, then run `make build`. That command bumps the build number.
 
-### How to contribute to the project?
-If you want to develop a new feature, or you've found something that doesn't work, the first step is to open an issue so the feature or problem can be discussed. Pull requests should only be opened for existing issues and after discussion; otherwise, they may be closed automatically. There are a few cases where this can be skipped: language changes, and contributors who have already made significant contributions and whose implementations align well with the project.
+SMC tests, which `make` runs before a build:
 
-## Open source, but not open contribution
-Stats is an open-source project: the full source code is available under the MIT license, and you are free to read it, learn from it, fork it, and build your own version of the app.
+```bash
+python3 Kit/scripts/run-smc-tests.py
+```
 
-However, it is not an open-contribution project. Stats is developed and maintained by a single person, and keeping the project stable and coherent takes priority over accepting every proposed change. Reviewing external code, testing it across different Macs and macOS versions, and maintaining it afterward often takes more time than writing it in the first place.
+## How it is put together
 
-For that reason, unsolicited pull requests are generally not accepted and may be closed without review. If you want to change or add something, please open an issue first so it can be discussed. The exceptions are translations and language fixes, which are always welcome, and contributions from people who have already made significant contributions to the project.
+- `Status/` is the app: settings, setup, health, and Shortcuts.
+- `Modules/` is CPU, GPU, RAM, Disk, Network, Sensors, Battery, Bluetooth, and Clock.
+- `Kit/` is shared widgets, readers, health history, and process sampling.
+- `Widgets/` is the macOS widget extension, including Mac Health.
+- `SMC/` is the optional privileged helper for fan control.
+- `Tests/` holds the unit tests.
 
-The best ways to support the project are reporting bugs, improving translations, and proposing ideas through issues.
+There is no config file to edit. Settings live in the app's preferences. History is stored in `~/Library/Application Support/Status/History`.
 
-## Supported languages
-- English
-- Polski
-- Українська
-- Русский
-- 中文 (简体) (thanks to [chenguokai](https://github.com/chenguokai), [Tai-Zhou](https://github.com/Tai-Zhou), and [Jerry](https://github.com/Jerry23011))
-- Türkçe (thanks to [yusufozgul](https://github.com/yusufozgul) and [setanarut](https://github.com/setanarut))
-- 한국어 (thanks to [escapeanaemia](https://github.com/escapeanaemia) and [iamhslee](https://github.com/iamhslee))
-- German (thanks to [natterstefan](https://github.com/natterstefan) and [aneitel](https://github.com/aneitel))
-- 中文 (繁體) (thanks to [iamch15542](https://github.com/iamch15542) and [jrthsr700tmax](https://github.com/jrthsr700tmax))
-- Spanish (thanks to [jcconca](https://github.com/jcconca))
-- Vietnamese (thanks to [HXD.VN](https://github.com/xuandung38))
-- French (thanks to [RomainLt](https://github.com/RomainLt))
-- Italian (thanks to [gmcinalli](https://github.com/gmcinalli))
-- Portuguese (Brazil) (thanks to [marcelochaves95](https://github.com/marcelochaves95) and [pedroserigatto](https://github.com/pedroserigatto))
-- Norwegian Bokmål (thanks to [rubjo](https://github.com/rubjo))
-- 日本語 (thanks to [treastrain](https://github.com/treastrain))
-- Portuguese (Portugal) (thanks to [AdamModus](https://github.com/AdamModus))
-- Czech (thanks to [mpl75](https://github.com/mpl75))
-- Magyar (thanks to [moriczr](https://github.com/moriczr))
-- Bulgarian (thanks to [zbrox](https://github.com/zbrox))
-- Romanian (thanks to [razluta](https://github.com/razluta))
-- Dutch (thanks to [ngohungphuc](https://github.com/ngohungphuc))
-- Hrvatski (thanks to [milotype](https://github.com/milotype))
-- Danish (thanks to [casperes1996](https://github.com/casperes1996) and [aleksanderbl29](https://github.com/aleksanderbl29))
-- Catalan (thanks to [davidalonso](https://github.com/davidalonso))
-- Indonesian (thanks to [yooody](https://github.com/yooody))
-- Hebrew (thanks to [BadSugar](https://github.com/BadSugar))
-- Slovenian (thanks to [zigapovhe](https://github.com/zigapovhe))
-- Greek (thanks to [sudoxcess](https://github.com/sudoxcess) and [vaionicle](https://github.com/vaionicle))
-- Persian (thanks to [ShawnAlisson](https://github.com/ShawnAlisson))
-- Slovenský (thanks to [martinbernat](https://github.com/martinbernat))
-- Thai (thanks to [apiphoomchu](https://github.com/apiphoomchu))
-- Estonian (thanks to [postylem](https://github.com/postylem))
-- Hindi (thanks to [patiljignesh](https://github.com/patiljignesh))
-- Finnish (thanks to [eightscrow](https://github.com/eightscrow))
-- Bengali (thanks to [adnan29979](https://github.com/adnan29979))
-- Tamil (thanks to [sabapathy7](https://github.com/sabapathy7))
+## Privacy
 
-You can help by adding a new language or improving the existing translation.
+Status has no account and no analytics. The auto-updater from the upstream app is not in this fork.
+
+When public IP is on (the default), the Network module requests `https://1.1.1.1/cdn-cgi/trace` and the IPv6 equivalent. You can turn that off in Network settings. Latency checks ping a host, `1.1.1.1` unless you change it. Clock can sync with `pool.ntp.org`. That switch is off until you turn it on.
+
+## Uninstall
+
+```bash
+sh /Applications/Status.app/Contents/Resources/Scripts/uninstall.sh
+```
+
+The script asks for an admin password so it can remove the SMC helper, if you installed one.
 
 ## License
-[MIT License](https://github.com/exelban/stats/blob/master/LICENSE)
+
+[MIT](LICENSE). Status includes code from [Stats](https://github.com/exelban/stats). Both copyright notices are in `LICENSE`.

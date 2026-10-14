@@ -1,12 +1,6 @@
 //
 //  main.swift
-//  Disk
-//
-//  Created by Serhiy Mytrovtsiy on 07/05/2020.
-//  Using Swift 5.0.
-//  Running on macOS 10.15.
-//
-//  Copyright © 2020 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Cocoa
@@ -83,14 +77,10 @@ public struct drive: Codable {
     public var popupState: Bool {
         Store.shared.bool(key: "Disk_\(self.uuid)_popup", defaultValue: true)
     }
-    
-    public func remote() -> String {
-        return "\(self.uuid),\(self.size),\(self.size-self.free),\(self.free),\(self.activity.read),\(self.activity.write)"
-    }
 }
 
-public class Disks: Codable, RemoteType {
-    private var queue: DispatchQueue = DispatchQueue(label: "eu.exelban.Stats.Disk.SynchronizedArray")
+public class Disks: Codable {
+    private var queue: DispatchQueue = DispatchQueue(label: "app.status.Status.Disk.SynchronizedArray")
     private var _array: [drive] = []
     public var array: [drive] {
         get { self.queue.sync { self._array } }
@@ -175,19 +165,6 @@ public class Disks: Codable, RemoteType {
     func updateSMARTData(_ idx: Int, smart: smart_t?) {
         self.array[idx].smart = smart
     }
-    
-    public func remote() -> Data? {
-        let arr = self.array.filter({ !$0.removable })
-        var string = "\(arr.count),"
-        for (i, v) in arr.enumerated() {
-            string += v.remote()
-            if i != self.array.count {
-                string += ","
-            }
-        }
-        string += "$"
-        return string.data(using: .utf8)
-    }
 }
 
 public struct Disk_process: Process_p, Codable {
@@ -222,6 +199,8 @@ public struct Disk_process: Process_p, Codable {
 }
 
 public class Disk: Module {
+    public override var pauseWhenDisplaySleeps: Bool { false }
+    
     private let popupView: Popup = Popup(.disk)
     private let settingsView: Settings = Settings(.disk)
     private let portalView: Portal = Portal(.disk, height: 120)
@@ -314,6 +293,9 @@ public class Disk: Module {
         })
         self.settingsView.setList(value)
         
+        if let root = value.first(where: { $0.root }), root.size > 0 {
+            HealthMonitor.shared.report(.diskFree, Double(root.free) / Double(root.size))
+        }
         guard let d = value.first(where: { $0.mediaName == self.selectedDisk }) ?? value.first(where: { $0.root }) else {
             return
         }

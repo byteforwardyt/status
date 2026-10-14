@@ -1,12 +1,6 @@
 //
 //  Bluetooth.swift
-//  Tests
-//
-//  Created by Serhiy Mytrovtsiy on 04/10/2026.
-//  Using Swift 6.0.
-//  Running on macOS 27.0.
-//
-//  Copyright © 2026 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import XCTest

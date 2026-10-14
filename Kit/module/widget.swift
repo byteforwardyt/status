@@ -1,12 +1,6 @@
 //
 //  widget.swift
-//  Kit
-//
-//  Created by Serhiy Mytrovtsiy on 10/04/2020.
-//  Using Swift 5.0.
-//  Running on macOS 10.15.
-//
-//  Copyright © 2020 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Cocoa
@@ -28,6 +22,7 @@ public enum widget_t: String {
     case state = "state"
     case text = "text"
     case icon = "icon"
+    case temperatures = "temperatures"
     
     public func new(module: String, config: NSDictionary, defaultWidget: widget_t, icon: NSImage? = nil) -> SWidget? {
         guard let widgetConfig: NSDictionary = config[self.rawValue] as? NSDictionary else { return nil }
@@ -83,6 +78,9 @@ public enum widget_t: String {
             preview = IconWidget(title: module, icon: icon, preview: true)
             item = IconWidget(title: module, icon: icon, preview: false)
             image = icon?.withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 14, weight: .regular)) ?? icon
+        case .temperatures:
+            preview = TemperaturesWidget(title: module, preview: true)
+            item = TemperaturesWidget(title: module, preview: false)
         default: break
         }
         
@@ -148,6 +146,7 @@ public enum widget_t: String {
         case .state: return localizedString("State widget")
         case .text: return localizedString("Text widget")
         case .icon: return localizedString("Icon widget")
+        case .temperatures: return localizedString("CPU & GPU temperature widget")
         default: return ""
         }
     }
@@ -173,7 +172,7 @@ open class WidgetWrapper: NSView, widget_p {
         self.type = type
         self.title = title
         self.shadowSize = frame.size
-        self.queue = DispatchQueue(label: "eu.exelban.Stats.WidgetWrapper.\(type.rawValue).\(title)")
+        self.queue = DispatchQueue(label: "app.status.Status.WidgetWrapper.\(type.rawValue).\(title)")
         
         super.init(frame: frame)
     }
@@ -416,7 +415,7 @@ public class MenuBar {
     
     init(moduleName: String) {
         self.moduleName = moduleName
-        self.queue = DispatchQueue(label: "eu.exelban.Stats.MenuBar.\(moduleName)")
+        self.queue = DispatchQueue(label: "app.status.Status.MenuBar.\(moduleName)")
         self.oneView = Store.shared.bool(key: "\(self.moduleName)_oneView", defaultValue: self.oneView)
         self.view.identifier = NSUserInterfaceItemIdentifier(rawValue: moduleName)
         

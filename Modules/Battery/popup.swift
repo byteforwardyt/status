@@ -1,12 +1,6 @@
 //
 //  popup.swift
-//  Battery
-//
-//  Created by Serhiy Mytrovtsiy on 06/06/2020.
-//  Using Swift 5.0.
-//  Running on macOS 10.15.
-//
-//  Copyright © 2020 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Cocoa
@@ -359,11 +353,12 @@ internal class Popup: PopupWrapper {
             self.timeField?.stringValue = localizedString("On hold")
         }
         
-        self.barView.setValue(ColorValue(Double(value.health)/100, color: .systemGreen))
+        self.barView.setValue(ColorValue(Double(value.health)/100, color: Severity.isEnabled ? Severity.batteryHealth(Double(value.health)).color : .systemGreen))
         self.maxCapacityField?.stringValue = "\(value.maxCapacity) mAh"
         self.designedCapacityField?.stringValue = "\(value.designedCapacity) mAh"
         
         self.healthField?.stringValue = "\(value.health)%"
+        self.healthField?.textColor = Severity.batteryHealth(Double(value.health)).textColor
         self.cyclesField?.stringValue = "\(value.cycles)"
         if let value = value.temperature {
             self.temperatureField?.stringValue = temperature(value)

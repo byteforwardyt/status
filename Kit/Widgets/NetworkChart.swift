@@ -1,12 +1,6 @@
 //
 //  NetworkChart.swift
-//  Kit
-//
-//  Created by Serhiy Mytrovtsiy on 19/01/2021.
-//  Using Swift 5.0.
-//  Running on macOS 11.1.
-//
-//  Copyright © 2021 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Cocoa

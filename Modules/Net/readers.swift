@@ -1,12 +1,6 @@
 //
 //  readers.swift
-//  Net
-//
-//  Created by Serhiy Mytrovtsiy on 24/05/2020.
-//  Using Swift 5.0.
-//  Running on macOS 10.15.
-//
-//  Copyright © 2020 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Cocoa
@@ -106,8 +100,14 @@ func isUsableSSID(_ ssid: String?) -> Bool {
 
 internal class UsageReader: Reader<Network_Usage>, CWEventDelegate, CLLocationManagerDelegate {
     private var reachability: Reachability = Reachability(start: true)
-    private let variablesQueue = DispatchQueue(label: "eu.exelban.NetworkUsageReader")
+    private let variablesQueue = DispatchQueue(label: "app.status.NetworkUsageReader")
     private var _usage: Network_Usage = Network_Usage()
+    // raw interface byte counters from the previous tick; kept separate so `usage.bandwidth` always holds a rate
+    private var _previousCounters: Bandwidth? = nil
+    private var previousCounters: Bandwidth? {
+        get { self.variablesQueue.sync { self._previousCounters } }
+        set { self.variablesQueue.sync { self._previousCounters = newValue } }
+    }
     public var usage: Network_Usage {
         get { self.variablesQueue.sync { self._usage } }
         set { self.variablesQueue.sync { self._usage = newValue } }
@@ -115,20 +115,45 @@ internal class UsageReader: Reader<Network_Usage>, CWEventDelegate, CLLocationMa
     
     private let virtualInterfacePrefixes = ["utun", "ipsec", "ppp", "tun", "tap", "gif", "stf", "wg"]
     
+    // configd lookups are IPC round-trips; cache briefly and drop the cache on reachability changes
+    private let primaryLock = NSLock()
+    private var cachedPrimary: (name: String, at: Date)? = nil
     private var primaryInterface: String {
         get {
-            guard let global = SCDynamicStoreCopyValue(nil, "State:/Network/Global/IPv4" as CFString), let name = global["PrimaryInterface"] as? String else {
-                return ""
+            self.primaryLock.lock()
+            if let cached = self.cachedPrimary, Date().timeIntervalSince(cached.at) < 5 {
+                self.primaryLock.unlock()
+                return cached.name
             }
-            if self.isVirtualInterface(name), let physical = self.physicalInterface() {
-                return physical
+            self.primaryLock.unlock()
+            
+            var name = ""
+            if let global = SCDynamicStoreCopyValue(nil, "State:/Network/Global/IPv4" as CFString), let primary = global["PrimaryInterface"] as? String {
+                name = primary
+                if self.isVirtualInterface(primary), let physical = self.physicalInterface() {
+                    name = physical
+                }
             }
+            
+            self.primaryLock.lock()
+            self.cachedPrimary = (name, Date())
+            self.primaryLock.unlock()
             return name
         }
     }
     
+    private func invalidatePrimaryInterface() {
+        self.primaryLock.lock()
+        self.cachedPrimary = nil
+        self.primaryLock.unlock()
+    }
+    
     private var interfaceID: String {
-        get { Store.shared.string(key: "Network_interface", defaultValue: self.primaryInterface) }
+        get {
+            // only fall back to the (cached) primary interface when the user hasn't picked one
+            let saved = Store.shared.string(key: "Network_interface", defaultValue: "")
+            return saved.isEmpty ? self.primaryInterface : saved
+        }
         set { Store.shared.set(key: "Network_interface", value: newValue) }
     }
     private var lastInterfaceID: String = ""
@@ -211,7 +236,7 @@ internal class UsageReader: Reader<Network_Usage>, CWEventDelegate, CLLocationMa
     
     private var lastDetailsReadTS: Date = .distantPast
     
-    private let detailsQueue = DispatchQueue(label: "eu.exelban.NetworkDetailsReader")
+    private let detailsQueue = DispatchQueue(label: "app.status.NetworkDetailsReader")
     private var _detailsInProgress: Bool = false
     private var detailsInProgress: Bool {
         get { self.variablesQueue.sync { self._detailsInProgress } }
@@ -221,6 +246,7 @@ internal class UsageReader: Reader<Network_Usage>, CWEventDelegate, CLLocationMa
     public override func setup() {
         self.reachability.reachable = { [weak self] in
             guard let self else { return }
+            self.invalidatePrimaryInterface()
             if self.active {
                 self.getPublicIP()
                 self.getDetails()
@@ -229,9 +255,11 @@ internal class UsageReader: Reader<Network_Usage>, CWEventDelegate, CLLocationMa
         }
         self.reachability.unreachable = { [weak self] in
             guard let self else { return }
+            self.invalidatePrimaryInterface()
             if self.active {
                 self.resetWiFiDetails()
                 self.usage.reset()
+                self.previousCounters = nil
                 self.callback(self.usage)
             }
         }
@@ -292,6 +320,7 @@ internal class UsageReader: Reader<Network_Usage>, CWEventDelegate, CLLocationMa
             self.lastInterfaceID = interfaceID
             self.resetWiFiDetails()
             self.usage.bandwidth = Bandwidth()
+            self.previousCounters = nil
             self.lastDetailsReadTS = .distantPast
         }
         
@@ -305,13 +334,14 @@ internal class UsageReader: Reader<Network_Usage>, CWEventDelegate, CLLocationMa
             current = self.readProcessBandwidth()
         }
         
-        // allows to reset the value to 0 when first read
-        if self.usage.bandwidth.upload != 0 {
-            self.usage.bandwidth.upload = current.upload - self.usage.bandwidth.upload
+        // the first read after start, reconnect or interface change only establishes the baseline
+        if let previous = self.previousCounters {
+            self.usage.bandwidth.upload = current.upload - previous.upload
+            self.usage.bandwidth.download = current.download - previous.download
+        } else {
+            self.usage.bandwidth = Bandwidth()
         }
-        if self.usage.bandwidth.download != 0 {
-            self.usage.bandwidth.download = current.download - self.usage.bandwidth.download
-        }
+        self.previousCounters = current
         
         self.usage.bandwidth.upload = max(self.usage.bandwidth.upload, 0) // prevent negative upload value
         self.usage.bandwidth.download = max(self.usage.bandwidth.download, 0) // prevent negative download value
@@ -329,6 +359,7 @@ internal class UsageReader: Reader<Network_Usage>, CWEventDelegate, CLLocationMa
         
         self.usage.total.upload += self.usage.bandwidth.upload
         self.usage.total.download += self.usage.bandwidth.download
+        NetworkStats.shared.add(download: self.usage.bandwidth.download, upload: self.usage.bandwidth.upload)
         
         self.usage.status = self.reachability.isReachable
         
@@ -338,9 +369,6 @@ internal class UsageReader: Reader<Network_Usage>, CWEventDelegate, CLLocationMa
         }
         
         self.callback(self.usage)
-        
-        self.usage.bandwidth.upload = current.upload
-        self.usage.bandwidth.download = current.download
     }
     
     private func readInterfaceBandwidth() -> Bandwidth {
@@ -475,7 +503,7 @@ internal class UsageReader: Reader<Network_Usage>, CWEventDelegate, CLLocationMa
             }
         }
         
-        if let prefs = SCPreferencesCreate(nil, "Stats" as CFString, nil), let services = SCNetworkServiceCopyAll(prefs) as? [SCNetworkService] {
+        if let prefs = SCPreferencesCreate(nil, "Status" as CFString, nil), let services = SCNetworkServiceCopyAll(prefs) as? [SCNetworkService] {
             for service in services {
                 if let interface = SCNetworkServiceGetInterface(service), let name = SCNetworkInterfaceGetBSDName(interface), name as String == interfaceID,
                    let serviceID = SCNetworkServiceGetServiceID(service) {
@@ -631,35 +659,31 @@ internal class UsageReader: Reader<Network_Usage>, CWEventDelegate, CLLocationMa
     private func getPublicIP() {
         guard self.publicIPState else { return }
         
-        struct Addr_s: Decodable {
-            let ipv4: String?
-            let ipv6: String?
-            let country: String?
-        }
-        
-        DispatchQueue.global(qos: .userInitiated).async {
-            let response = syncShell("curl -s -4 https://api.mac-stats.com/ip")
-            if !response.isEmpty, let data = response.data(using: .utf8),
-               let addr = try? JSONDecoder().decode(Addr_s.self, from: data) {
-                if let ip = addr.ipv4, self.isIPv4(ip) {
+        let endpoints: [(url: String, v4: Bool)] = [
+            ("https://1.1.1.1/cdn-cgi/trace", true),
+            ("https://[2606:4700:4700::1111]/cdn-cgi/trace", false)
+        ]
+        for endpoint in endpoints {
+            guard let url = URL(string: endpoint.url) else { continue }
+            var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 10)
+            request.httpMethod = "GET"
+            URLSession.shared.dataTask(with: request) { [weak self] data, _, _ in
+                guard let self, let data, let body = String(data: data, encoding: .utf8) else { return }
+                var fields: [Substring: Substring] = [:]
+                for line in body.split(separator: "\n") {
+                    let pair = line.split(separator: "=", maxSplits: 1)
+                    if pair.count == 2 { fields[pair[0]] = pair[1] }
+                }
+                guard let ip = fields["ip"].map(String.init) else { return }
+                if endpoint.v4, self.isIPv4(ip) {
                     self.usage.raddr.v4 = ip
-                }
-                if let countryCode = addr.country {
-                    self.usage.raddr.countryCode = countryCode
-                }
-            }
-        }
-        DispatchQueue.global(qos: .userInitiated).async {
-            let response = syncShell("curl -s -6 https://api.mac-stats.com/ip")
-            if !response.isEmpty, let data = response.data(using: .utf8),
-               let addr = try? JSONDecoder().decode(Addr_s.self, from: data) {
-                if let ip = addr.ipv6, !self.isIPv4(ip) {
+                } else if !endpoint.v4, !self.isIPv4(ip) {
                     self.usage.raddr.v6 = ip
                 }
-                if let countryCode = addr.country {
-                    self.usage.raddr.countryCode = countryCode
+                if let loc = fields["loc"], loc.count == 2 {
+                    self.usage.raddr.countryCode = String(loc)
                 }
-            }
+            }.resume()
         }
     }
     
@@ -903,7 +927,7 @@ internal class ConnectivityReaderWrapper {
 
 // inspired by https://github.com/samiyr/SwiftyPing
 internal class ConnectivityReader: Reader<Network_Connectivity> {
-    private let variablesQueue = DispatchQueue(label: "eu.exelban.ConnectivityReaderQueue")
+    private let variablesQueue = DispatchQueue(label: "app.status.ConnectivityReaderQueue")
     
     private let identifier = UInt16.random(in: 0..<UInt16.max)
     private var fingerprint: UUID = UUID()
@@ -933,6 +957,23 @@ internal class ConnectivityReader: Reader<Network_Connectivity> {
     private var socketInfo: Unmanaged<ConnectivityReaderWrapper>?
     
     private var wrapper: Network_Connectivity = Network_Connectivity(status: false)
+    private let gateway = GatewayPinger()
+    private var gatewayTick: UInt = 0
+    
+    // rolling window of the last probes: true = answered, false = lost
+    private var _probes: [Bool] = []
+    private func recordProbe(_ ok: Bool) {
+        self.variablesQueue.sync {
+            self._probes.append(ok)
+            if self._probes.count > 100 { self._probes.removeFirst(self._probes.count - 100) }
+        }
+    }
+    private var packetLoss: Double? {
+        self.variablesQueue.sync {
+            guard self._probes.count >= 5 else { return nil }
+            return Double(self._probes.filter({ !$0 }).count) / Double(self._probes.count) * 100
+        }
+    }
     
     private var _status: Bool? = nil
     private var status: Bool? {
@@ -1036,6 +1077,12 @@ internal class ConnectivityReader: Reader<Network_Connectivity> {
             self.icmpCheck()
         }
         
+        // router latency changes slowly; probing every 5th tick is plenty
+        self.gatewayTick &+= 1
+        if self.gatewayTick % 5 == 1 {
+            self.gateway.ping()
+        }
+        
         if let v = self.status {
             self.wrapper.status = v
             if let l = self.latency {
@@ -1044,6 +1091,8 @@ internal class ConnectivityReader: Reader<Network_Connectivity> {
             if let j = self.jitter {
                 self.wrapper.jitter = j
             }
+            self.wrapper.packetLoss = self.packetLoss
+            self.wrapper.routerLatency = self.gateway.latency
             self.callback(self.wrapper)
         }
     }
@@ -1083,6 +1132,7 @@ internal class ConnectivityReader: Reader<Network_Connectivity> {
             } else {
                 self.status = false
             }
+            self.recordProbe(self.status ?? false)
             self.isPinging = false
         }
         task.resume()
@@ -1114,6 +1164,7 @@ internal class ConnectivityReader: Reader<Network_Connectivity> {
     @objc private func timeoutCallback() {
         self.status = false
         self.isPinging = false
+        self.recordProbe(false)
     }
     
     private func socketCallback(data: Data? = nil, error: CFSocketError? = nil) {
@@ -1133,6 +1184,7 @@ internal class ConnectivityReader: Reader<Network_Connectivity> {
         self.previousLatency = self.latency
         
         self.status = error == nil
+        self.recordProbe(error == nil)
         self.isPinging = false
         self.timeoutTimer?.invalidate()
         self.timeoutTimer = nil

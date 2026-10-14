@@ -1,9 +1,6 @@
 //
 //  UnitedWidget.swift
-//  WidgetsExtension
-//
-//  Created by Serhiy Mytrovtsiy on 22/07/2025.
-//  Copyright © 2025 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import SwiftUI
@@ -41,7 +38,7 @@ public struct United_entry: TimelineEntry {
 public struct Provider: TimelineProvider {
     public typealias Entry = United_entry
     
-    private let userDefaults: UserDefaults? = UserDefaults(suiteName: "\(Bundle.main.object(forInfoDictionaryKey: "TeamId") as! String).eu.exelban.Stats.widgets")
+    private let userDefaults: UserDefaults? = UserDefaults(suiteName: "\(Bundle.main.object(forInfoDictionaryKey: "TeamId") as! String).app.status.Status.widgets")
     
     public func placeholder(in context: Context) -> United_entry {
         United_entry()

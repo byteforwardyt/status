@@ -1,12 +1,6 @@
 //
 //  Icon.swift
-//  Stats
-//
-//  Created by Serhiy Mytrovtsiy on 05/10/2026.
-//  Using Swift 6.0.
-//  Running on macOS 27.0.
-//
-//  Copyright © 2026 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Cocoa

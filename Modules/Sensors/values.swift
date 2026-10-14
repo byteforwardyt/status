@@ -1,12 +1,6 @@
 //
 //  values.swift
-//  Sensors
-//
-//  Created by Serhiy Mytrovtsiy on 17/06/2020.
-//  Using Swift 5.0.
-//  Running on macOS 10.15.
-//
-//  Copyright © 2020 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Kit
@@ -52,7 +46,7 @@ public protocol Sensor_p {
 }
 
 public class Sensors_List: Codable {
-    private var queue: DispatchQueue = DispatchQueue(label: "eu.exelban.Stats.Sensors.SynchronizedArray", attributes: .concurrent)
+    private var queue: DispatchQueue = DispatchQueue(label: "app.status.Status.Sensors.SynchronizedArray", attributes: .concurrent)
     
     private var list: [Sensor_p] = []
     public var sensors: [Sensor_p] {

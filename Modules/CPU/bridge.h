@@ -1,13 +1,7 @@
 //
 //  bridge.h
-//  Stats
+//  Status
 //
-//  Created by Serhiy Mytrovtsiy on 17/12/2024
-//  Using Swift 6.0
-//  Running on macOS 15.1
-//
-//  Copyright © 2024 Serhiy Mytrovtsiy. All rights reserved.
-//  
 
 #ifndef bridge_h
 #define bridge_h

@@ -1,14 +1,7 @@
 //
-//  Chart.swift
-//  Kit
+//  Charts.swift
+//  Status
 //
-//  Created by Serhiy Mytrovtsiy on 17/04/2020.
-//  Using Swift 5.0.
-//  Running on macOS 10.15.
-//
-//  Copyright © 2020 Serhiy Mytrovtsiy. All rights reserved.
-//
-// swiftlint:disable file_length
 
 import Cocoa
 import QuartzCore
@@ -247,7 +240,7 @@ public class LineChartView: ChartView {
         self.fixedScale = fixedScale
         self.zeroValue = zeroValue
         
-        super.init(frame: frame, queueLabel: "eu.exelban.Stats.Charts.Line")
+        super.init(frame: frame, queueLabel: "app.status.Status.Charts.Line")
         self.animationEnabled = animation
         
         self.dateFormatter.dateFormat = "dd/MM HH:mm:ss"
@@ -313,13 +306,17 @@ public class LineChartView: ChartView {
         
         let lineColor: NSColor = color
         var gradientColor: NSColor = color.withAlphaComponent(0.5)
-        if !transparent {
+        let gradient: NSGradient?
+        if transparent {
+            // area fades out towards the baseline
+            gradient = NSGradient(colors: [color.withAlphaComponent(0.02), color.withAlphaComponent(0.34)])
+        } else {
             gradientColor = color.withAlphaComponent(0.8)
+            gradient = NSGradient(colors: [
+                gradientColor.withAlphaComponent(0.5),
+                gradientColor.withAlphaComponent(1.0)
+            ])
         }
-        let gradient = NSGradient(colors: [
-            gradientColor.withAlphaComponent(0.5),
-            gradientColor.withAlphaComponent(1.0)
-        ])
         
         let offset: CGFloat = 1 / (NSScreen.main?.backingScaleFactor ?? 1)
         let xLegendHeight: CGFloat = xLegend ? 14 : 0
@@ -377,20 +374,23 @@ public class LineChartView: ChartView {
             for i in 1..<linePoints.count {
                 path.line(to: linePoints[i])
             }
-            lineColor.set()
-            path.lineWidth = offset
-            path.stroke()
-
-            path = path.copy() as! NSBezierPath
-            path.line(to: CGPoint(x: linePoints[linePoints.count-1].x, y: zero))
-            path.line(to: CGPoint(x: linePoints[0].x, y: zero))
-            path.close()
+            
+            let area = path.copy() as! NSBezierPath
+            area.line(to: CGPoint(x: linePoints[linePoints.count-1].x, y: zero))
+            area.line(to: CGPoint(x: linePoints[0].x, y: zero))
+            area.close()
             if let gradient {
-                gradient.draw(in: path, angle: 90)
+                gradient.draw(in: area, angle: flipY ? -90 : 90)
             } else {
                 gradientColor.set()
-                path.fill()
+                area.fill()
             }
+            
+            lineColor.set()
+            path.lineJoinStyle = .round
+            path.lineCapStyle = .round
+            path.lineWidth = self.frame.height > 30 ? 1.5 : max(offset, 1)
+            path.stroke()
         }
         
         if minMax {
@@ -792,7 +792,7 @@ public class NetworkChartView: ChartView {
         self.inChart = LineChartView(frame: inFrame, num: num, color: inColor, scale: scale, fixedScale: fixedScale, zeroValue: 256.0, animation: animation)
         self.outChart = LineChartView(frame: outFrame, num: num, color: outColor, scale: scale, fixedScale: fixedScale, zeroValue: 256.0, animation: animation)
         
-        super.init(frame: frame, queueLabel: "eu.exelban.Stats.Charts.Network")
+        super.init(frame: frame, queueLabel: "app.status.Status.Charts.Network")
         
         self.inChart.setMinMax(minMax)
         self.outChart.setMinMax(minMax)
@@ -917,7 +917,7 @@ public class PieChartView: ChartView {
         self.segments = segments
         self.lineCap = lineCap
         
-        super.init(frame: frame, queueLabel: "eu.exelban.Stats.Charts.Pie")
+        super.init(frame: frame, queueLabel: "app.status.Status.Charts.Pie")
         self.animationEnabled = animation
         
         self.setAccessibilityElement(true)
@@ -1044,6 +1044,14 @@ public class PieChartView: ChartView {
         }
         self.displayIfVisible()
     }
+    
+    public func setColor(_ newColor: NSColor) {
+        self.write {
+            guard self.color != newColor else { return }
+            self.color = newColor
+        }
+        self.displayIfVisible()
+    }
 }
 
 public class TachometerGraphView: ChartView {
@@ -1054,7 +1062,7 @@ public class TachometerGraphView: ChartView {
         self.filled = filled
         self.segments = segments
         
-        super.init(frame: frame, queueLabel: "eu.exelban.Stats.Charts.Tachometer")
+        super.init(frame: frame, queueLabel: "app.status.Status.Charts.Tachometer")
         self.animationEnabled = animation
     }
     
@@ -1119,7 +1127,7 @@ public class GaugeChartView: ChartView {
         self.segments = segments
         self.title = title
         
-        super.init(frame: frame, queueLabel: "eu.exelban.Stats.Charts.Gauge")
+        super.init(frame: frame, queueLabel: "app.status.Status.Charts.Gauge")
         self.animationEnabled = animation
         
         self.setAccessibilityElement(true)
@@ -1254,7 +1262,7 @@ public class ColumnChartView: ChartView {
     private var cursor: CGPoint? = nil
     
     public init(frame: NSRect = NSRect.zero, num: Int, animation: Bool = true) {
-        super.init(frame: frame, queueLabel: "eu.exelban.Stats.Charts.Column")
+        super.init(frame: frame, queueLabel: "app.status.Status.Charts.Column")
         self.animationEnabled = animation
         self.values = Array(repeating: ColorValue(0, color: .controlAccentColor), count: num)
         
@@ -1390,7 +1398,7 @@ public class GridChartView: ChartView {
     
     public init(frame: NSRect = .zero, grid: (rows: Int, columns: Int)) {
         self.grid = grid
-        super.init(frame: frame, queueLabel: "eu.exelban.Stats.Charts.Grid")
+        super.init(frame: frame, queueLabel: "app.status.Status.Charts.Grid")
         let totalCells = max(grid.rows * grid.columns, 1)
         self.values = Array(repeating: nil, count: totalCells)
         
@@ -1500,7 +1508,7 @@ public class BarChartView: ChartView {
         self.size = size
         self.horizontal = horizontal
         
-        super.init(frame: frame, queueLabel: "eu.exelban.Stats.Charts.Bar")
+        super.init(frame: frame, queueLabel: "app.status.Status.Charts.Bar")
         self.animationEnabled = animation
     }
     

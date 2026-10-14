@@ -1,12 +1,6 @@
 //
 //  smc.swift
-//  SMC
-//
-//  Created by Serhiy Mytrovtsiy on 25/05/2021.
-//  Using Swift 5.0.
-//  Running on macOS 10.15.
-//
-//  Copyright © 2021 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Foundation

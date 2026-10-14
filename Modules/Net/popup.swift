@@ -1,12 +1,6 @@
 //
 //  popup.swift
-//  Net
-//
-//  Created by Serhiy Mytrovtsiy on 24/05/2020.
-//  Using Swift 5.0.
-//  Running on macOS 10.15.
-//
-//  Copyright © 2020 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Cocoa
@@ -39,6 +33,25 @@ internal class Popup: PopupWrapper {
     private var connectivityField: StatusBadgeView? = nil
     private var latencyField: ValueField? = nil
     private var jitterField: ValueField? = nil
+    private var packetLossField: ValueField? = nil
+    private var routerLatencyField: ValueField? = nil
+    private var peakDownloadField: ValueField? = nil
+    private var peakUploadField: ValueField? = nil
+    
+    private var todayField: ValueField? = nil
+    private var weekField: ValueField? = nil
+    private var monthField: ValueField? = nil
+    private var dailyChart: DailyUsageChart? = nil
+    private var appUsageRows: [(LabelField, ValueField, NSView)] = []
+    private var dailyUpdatedAt: Date = .distantPast
+    
+    private var signalView: NSView? = nil
+    private var signalField: ValueField? = nil
+    
+    private var connectionsField: ValueField? = nil
+    private var connectedAppsField: ValueField? = nil
+    private var unverifiedAppsField: ValueField? = nil
+    private var connectionsTimer: Timer? = nil
     
     private var interfaceView: NSStackView? = nil
     private var interfaceField: ValueField? = nil
@@ -141,8 +154,10 @@ internal class Popup: PopupWrapper {
         self.addArrangedSubview(self.initChart())
         self.addArrangedSubview(self.initConnectivityChart())
         self.addArrangedSubview(self.initDetails())
+        self.addArrangedSubview(self.initDailyUsage())
         self.addArrangedSubview(self.initInterface())
         self.addArrangedSubview(self.initAddress())
+        self.addArrangedSubview(self.initConnections())
         self.addArrangedSubview(self.initProcesses())
         
         if !self.publicIPState {
@@ -257,7 +272,7 @@ internal class Popup: PopupWrapper {
         view.spacing = 0
         
         view.addArrangedSubview(SeparatorView(
-            label: localizedString("Interface"),
+            label: localizedString("Usage"),
             button: PopupButton(toolTip: localizedString("Reset"), icon: "arrow.clockwise") { [weak self] in
                 self?.resetTotalNetworkUsage()
             }
@@ -278,8 +293,103 @@ internal class Popup: PopupWrapper {
         self.connectivityField = popupBadgeRow(view, title: "\(localizedString("Internet connection")):").1
         self.latencyField = popupRow(view, title: "\(localizedString("Latency")):", value: "0 ms").1
         self.jitterField = popupRow(view, title: "\("Jitter"):", value: "0 ms").1
+        self.packetLossField = popupRow(view, title: "\(localizedString("Packet loss")):", value: localizedString("Unknown")).1
+        self.routerLatencyField = popupRow(view, title: "\(localizedString("Router latency")):", value: localizedString("Unknown")).1
+        self.peakDownloadField = popupRow(view, title: "\(localizedString("Peak download")):", value: "0").1
+        self.peakUploadField = popupRow(view, title: "\(localizedString("Peak upload")):", value: "0").1
         
         return view
+    }
+    
+    private func initDailyUsage() -> NSView {
+        let view = NSStackView(frame: NSRect(x: 0, y: 0, width: self.frame.width, height: 0))
+        view.orientation = .vertical
+        view.spacing = 0
+        
+        view.addArrangedSubview(SeparatorView(label: localizedString("Data usage")))
+        
+        let chart = DailyUsageChart(frame: NSRect(x: 0, y: 0, width: self.frame.width, height: 64))
+        chart.translatesAutoresizingMaskIntoConstraints = false
+        chart.heightAnchor.constraint(equalToConstant: 64).isActive = true
+        chart.widthAnchor.constraint(equalToConstant: self.frame.width).isActive = true
+        view.addArrangedSubview(chart)
+        self.dailyChart = chart
+        
+        let spacer = NSView(frame: NSRect(x: 0, y: 0, width: self.frame.width, height: 6))
+        spacer.heightAnchor.constraint(equalToConstant: 6).isActive = true
+        view.addArrangedSubview(spacer)
+        
+        self.todayField = popupRow(view, title: "\(localizedString("Today")):", value: "0").1
+        self.weekField = popupRow(view, title: "\(localizedString("This week")):", value: "0").1
+        self.monthField = popupRow(view, title: "\(localizedString("This month")):", value: "0").1
+        
+        view.addArrangedSubview(SeparatorView(label: localizedString("Data by app today")))
+        for _ in 0..<5 {
+            let row = popupRow(view, title: "—", value: "")
+            row.1.font = Theme.valueFont(11.5)
+            // popupRow sizes the label to its initial text; give app names room
+            row.0.frame = NSRect(x: 0, y: row.0.frame.minY, width: 110, height: row.0.frame.height)
+            row.1.frame = NSRect(x: 110, y: row.1.frame.minY, width: self.frame.width - 110, height: row.1.frame.height)
+            self.appUsageRows.append(row)
+        }
+        
+        return view
+    }
+    
+    private func initConnections() -> NSView {
+        let view = NSStackView(frame: NSRect(x: 0, y: 0, width: self.frame.width, height: 0))
+        view.orientation = .vertical
+        view.spacing = 0
+        
+        view.addArrangedSubview(SeparatorView(
+            label: localizedString("Connections"),
+            button: PopupButton(toolTip: localizedString("Show all connections"), icon: "list.bullet.rectangle") {
+                ConnectionsWindow.open()
+            }
+        ))
+        
+        self.connectionsField = popupRow(view, title: "\(localizedString("Active connections")):", value: "—").1
+        self.connectedAppsField = popupRow(view, title: "\(localizedString("Apps online")):", value: "—").1
+        self.unverifiedAppsField = popupRow(view, title: "\(localizedString("Unverified apps")):", value: "—").1
+        self.unverifiedAppsField?.toolTip = localizedString("Apps not signed by Apple or an identified developer that currently have network connections")
+        
+        return view
+    }
+    
+    private func renderDailyUsage() {
+        guard Date().timeIntervalSince(self.dailyUpdatedAt) >= 2 else { return }
+        self.dailyUpdatedAt = Date()
+        
+        let stats = NetworkStats.shared
+        let format: (DailyUsage) -> String = { u in
+            "↓ \(Units(bytes: u.download).getReadableMemory())  ↑ \(Units(bytes: u.upload).getReadableMemory())"
+        }
+        self.todayField?.stringValue = format(stats.total(since: .day))
+        self.weekField?.stringValue = format(stats.total(since: .weekOfYear))
+        self.monthField?.stringValue = format(stats.total(since: .month))
+        self.dailyChart?.setValues(stats.history(days: 14), download: self.downloadColor, upload: self.uploadColor)
+        
+        let apps = AppTrafficStore.shared.top(days: 1, limit: self.appUsageRows.count)
+        for (i, row) in self.appUsageRows.enumerated() {
+            if i < apps.count {
+                row.0.stringValue = apps[i].app
+                row.1.stringValue = "↓ \(Units(bytes: apps[i].download).getReadableMemory())  ↑ \(Units(bytes: apps[i].upload).getReadableMemory())"
+            } else {
+                row.0.stringValue = i == 0 && apps.isEmpty ? localizedString("Measuring…") : "—"
+                row.1.stringValue = ""
+            }
+        }
+    }
+    
+    private func refreshConnections() {
+        ConnectionsMonitor.shared.fetch { [weak self] list in
+            guard let self else { return }
+            let s = ConnectionsMonitor.summary(list)
+            self.connectionsField?.stringValue = "\(s.connections)"
+            self.connectedAppsField?.stringValue = "\(s.apps)"
+            self.unverifiedAppsField?.stringValue = "\(s.unverifiedApps)"
+            self.unverifiedAppsField?.textColor = s.unverifiedApps > 0 ? .systemOrange : .labelColor
+        }
     }
     
     private func initInterface() -> NSView {
@@ -309,6 +419,11 @@ internal class Popup: PopupWrapper {
         
         ssid.2.addSubview(permissionButton)
         self.locationPermissionButton = permissionButton
+        let signal = popupRow(view, title: "\(localizedString("Signal")):", value: localizedString("Unknown"))
+        self.signalField = signal.1
+        self.signalView = signal.2
+        signal.2.removeFromSuperview()
+        
         let standard = popupRow(view, title: "\(localizedString("Standard")):", value: localizedString("Unavailable"))
         let channel = popupRow(view, title: "\(localizedString("Channel")):", value: localizedString("Unavailable"))
         let speed = popupRow(view, title: "\(localizedString("Speed")):", value: localizedString("Unknown"))
@@ -397,6 +512,17 @@ internal class Popup: PopupWrapper {
     public override func appear() {
         self.replay(self.usageCache, render: self.renderUsage)
         self.replay(self.connectivityCache, render: self.renderConnectivity)
+        
+        self.refreshConnections()
+        self.connectionsTimer?.invalidate()
+        let timer = Timer(timeInterval: 5, repeats: true) { [weak self] _ in self?.refreshConnections() }
+        RunLoop.main.add(timer, forMode: .common)
+        self.connectionsTimer = timer
+    }
+    
+    public override func disappear() {
+        self.connectionsTimer?.invalidate()
+        self.connectionsTimer = nil
     }
     
     public func numberOfProcessesUpdated() {
@@ -434,6 +560,9 @@ internal class Popup: PopupWrapper {
         
         self.totalUploadField?.stringValue = Units(bytes: value.total.upload).getReadableMemory()
         self.totalDownloadField?.stringValue = Units(bytes: value.total.download).getReadableMemory()
+        self.peakDownloadField?.stringValue = Units(bytes: NetworkStats.shared.peakDownload).getReadableSpeed(base: self.base, unit: self.speedUnit)
+        self.peakUploadField?.stringValue = Units(bytes: NetworkStats.shared.peakUpload).getReadableSpeed(base: self.base, unit: self.speedUnit)
+        self.renderDailyUsage()
         
         let form = DateComponentsFormatter()
         form.maximumUnitCount = 2
@@ -491,6 +620,25 @@ internal class Popup: PopupWrapper {
                     y: ((self.ssidView?.bounds.height ?? 22) - button.frame.height) / 2
                 )
             }
+            if let rssi = value.wifiDetails.RSSI, !accessRequired {
+                if let view = self.signalView, view.superview == nil {
+                    self.interfaceView?.addArrangedSubview(view)
+                    resized = true
+                }
+                let severity = Severity.signal(rssi)
+                let names: [Severity: String] = [.good: "Excellent", .fair: "Good", .warning: "Fair", .critical: "Poor"]
+                let quality = (localizedString(names[severity] ?? "Unknown"), severity.textColor)
+                var text = "\(quality.0) · \(rssi) dBm"
+                if let noise = value.wifiDetails.noise {
+                    text += " · SNR \(rssi - noise) dB"
+                }
+                self.signalField?.stringValue = text
+                self.signalField?.textColor = quality.1
+                self.signalField?.toolTip = localizedString("Signal strength (RSSI) and signal-to-noise ratio. Above 25 dB SNR is good.")
+            } else if let view = self.signalView, view.superview != nil {
+                view.removeFromSuperview()
+                resized = true
+            }
             self.standardField?.stringValue = value.wifiDetails.standard ?? localizedString("Unknown")
             self.channelField?.stringValue = value.wifiDetails.channel ?? localizedString("Unknown")
             
@@ -511,6 +659,10 @@ internal class Popup: PopupWrapper {
             if self.ssidView?.superview != nil {
                 self.ssidField?.stringValue = localizedString("Unavailable")
                 self.ssidView?.removeFromSuperview()
+                resized = true
+            }
+            if self.signalView?.superview != nil {
+                self.signalView?.removeFromSuperview()
                 resized = true
             }
             if self.standardField?.superview != nil {
@@ -640,17 +792,40 @@ internal class Popup: PopupWrapper {
     private func renderConnectivity(_ value: Network_Connectivity?) {
         var latency = localizedString("Unknown")
         var jitter = localizedString("Unknown")
+        var latencyColor: NSColor = .labelColor
+        var jitterColor: NSColor = .labelColor
         
         if let v = value {
             if v.status && !self.latency.isEmpty {
-                latency = "\((self.latency.reduce(0, +) / Double(self.latency.count)).rounded(toPlaces: 2)) ms"
+                let avg = self.latency.reduce(0, +) / Double(self.latency.count)
+                latency = "\(avg.rounded(toPlaces: 2)) ms"
+                latencyColor = Severity.latency(avg).textColor
             }
             if v.status && !self.jitter.isEmpty {
-                jitter = "\((self.jitter.reduce(0, +) / Double(self.jitter.count)).rounded(toPlaces: 2)) ms"
+                let avg = self.jitter.reduce(0, +) / Double(self.jitter.count)
+                jitter = "\(avg.rounded(toPlaces: 2)) ms"
+                jitterColor = Severity.jitter(avg).textColor
             }
         }
         self.latencyField?.stringValue = latency
+        self.latencyField?.textColor = latencyColor
         self.jitterField?.stringValue = jitter
+        self.jitterField?.textColor = jitterColor
+        
+        if let loss = value?.packetLoss {
+            self.packetLossField?.stringValue = "\(loss.rounded(toPlaces: 1))%"
+            self.packetLossField?.textColor = Severity.packetLoss(loss).textColor
+        } else {
+            self.packetLossField?.stringValue = localizedString("Unknown")
+            self.packetLossField?.textColor = .labelColor
+        }
+        if let router = value?.routerLatency {
+            self.routerLatencyField?.stringValue = "\(router.rounded(toPlaces: 2)) ms"
+            self.routerLatencyField?.textColor = Severity.routerLatency(router).textColor
+        } else {
+            self.routerLatencyField?.stringValue = localizedString("Unknown")
+            self.routerLatencyField?.textColor = .labelColor
+        }
         
         self.connectivityField?.setStatus(value?.status)
         self.connectivityChart?.display()
@@ -952,5 +1127,72 @@ internal class Popup: PopupWrapper {
     
     @objc private func resetTotalNetworkUsageCallback() {
         self.lastReset = Date()
+        NetworkStats.shared.resetPeaks()
+    }
+}
+
+/// Stacked download/upload bars for the last N days.
+internal final class DailyUsageChart: NSView {
+    private var values: [(date: Date, usage: DailyUsage)] = []
+    private var downloadColor: NSColor = .systemBlue
+    private var uploadColor: NSColor = .systemRed
+    private let dayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.setLocalizedDateFormatFromTemplate("EEE d MMM")
+        return f
+    }()
+    
+    func setValues(_ values: [(date: Date, usage: DailyUsage)], download: NSColor, upload: NSColor) {
+        self.values = values
+        self.downloadColor = download
+        self.uploadColor = upload
+        self.needsDisplay = true
+        
+        self.removeAllToolTips()
+        let rects = self.barRects()
+        for (i, v) in values.enumerated() where i < rects.count {
+            let text = "\(self.dayFormatter.string(from: v.date))\n↓ \(Units(bytes: v.usage.download).getReadableMemory())   ↑ \(Units(bytes: v.usage.upload).getReadableMemory())"
+            self.addToolTip(NSRect(x: rects[i].minX, y: 0, width: rects[i].width, height: self.bounds.height), owner: text as NSString, userData: nil)
+        }
+    }
+    
+    private func barRects() -> [NSRect] {
+        guard !self.values.isEmpty else { return [] }
+        let gap: CGFloat = 4
+        let width = (self.bounds.width - gap * CGFloat(self.values.count - 1)) / CGFloat(self.values.count)
+        return self.values.indices.map { NSRect(x: CGFloat($0) * (width + gap), y: 14, width: width, height: self.bounds.height - 14) }
+    }
+    
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        let rects = self.barRects()
+        let maxTotal = max(self.values.map({ $0.usage.download + $0.usage.upload }).max() ?? 0, 1)
+        
+        for (i, v) in self.values.enumerated() where i < rects.count {
+            let r = rects[i]
+            let track = NSBezierPath(roundedRect: r, xRadius: 3, yRadius: 3)
+            NSColor.labelColor.withAlphaComponent(0.06).setFill()
+            track.fill()
+            
+            let total = v.usage.download + v.usage.upload
+            guard total > 0 else { continue }
+            let h = max(2, r.height * CGFloat(Double(total) / Double(maxTotal)))
+            let downH = h * CGFloat(Double(v.usage.download) / Double(total))
+            
+            NSGraphicsContext.saveGraphicsState()
+            NSBezierPath(roundedRect: NSRect(x: r.minX, y: r.minY, width: r.width, height: h), xRadius: 3, yRadius: 3).addClip()
+            self.downloadColor.setFill()
+            NSRect(x: r.minX, y: r.minY, width: r.width, height: downH).fill()
+            self.uploadColor.setFill()
+            NSRect(x: r.minX, y: r.minY + downH, width: r.width, height: h - downH).fill()
+            NSGraphicsContext.restoreGraphicsState()
+        }
+        
+        let attrs: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 9, weight: .medium), .foregroundColor: NSColor.secondaryLabelColor]
+        if let first = self.values.first {
+            NSAttributedString(string: self.dayFormatter.string(from: first.date), attributes: attrs).draw(at: NSPoint(x: 0, y: 0))
+        }
+        let today = NSAttributedString(string: localizedString("Today"), attributes: attrs)
+        today.draw(at: NSPoint(x: self.bounds.width - today.size().width, y: 0))
     }
 }

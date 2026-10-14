@@ -1,12 +1,6 @@
 //
 //  popup.swift
-//  Memory
-//
-//  Created by Serhiy Mytrovtsiy on 18/04/2020.
-//  Using Swift 5.0.
-//  Running on macOS 10.15.
-//
-//  Copyright © 2020 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Cocoa
@@ -253,6 +247,14 @@ internal class Popup: PopupWrapper {
         self.swapField?.stringValue = Units(bytes: Int64(value.swap.used)).getReadableMemory(style: .memory)
         
         self.usedField?.stringValue = Units(bytes: Int64(value.used)).getReadableMemory(style: .memory)
+        // memory pressure, not the raw percentage, says whether the Mac is short on RAM
+        let severity: Severity
+        switch value.pressure.value {
+        case .critical: severity = .critical
+        case .warning: severity = .warning
+        default: severity = min(Severity.usage(value.usage), .fair)
+        }
+        self.usedField?.textColor = severity.textColor
         self.freeField?.stringValue = Units(bytes: Int64(value.free)).getReadableMemory(style: .memory)
         
         let values = [

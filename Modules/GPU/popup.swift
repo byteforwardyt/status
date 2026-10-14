@@ -1,12 +1,6 @@
 //
 //  popup.swift
-//  GPU
-//
-//  Created by Serhiy Mytrovtsiy on 17/08/2020.
-//  Using Swift 5.0.
-//  Running on macOS 10.15.
-//
-//  Copyright © 2020 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Cocoa
@@ -158,24 +152,31 @@ internal class Popup: PopupWrapper {
         
         if let utilization = value.utilization {
             self.usageCircle?.toolTip = "\(localizedString("GPU utilization")): \(Int(utilization.rounded(toPlaces: 2) * 100))%"
+            self.usageCircle?.setColor(Severity.isEnabled ? Severity.usage(utilization).color : .systemBlue)
             self.usageCircle?.setValue(utilization)
             self.usageCircle?.display()
             self.utilizationField?.stringValue = "\(Int(utilization*100))%"
+            self.utilizationField?.textColor = Severity.usage(utilization).textColor
         }
         if let utilization = value.renderUtilization {
             self.renderCircle?.toolTip = "\(localizedString("Renderer utilization")): \(Int(utilization.rounded(toPlaces: 2) * 100))%"
+            self.renderCircle?.setColor(Severity.isEnabled ? Severity.usage(utilization).color : .systemBlue)
             self.renderCircle?.setValue(utilization)
             self.renderCircle?.display()
             self.renderField?.stringValue = "\(Int(utilization*100))%"
+            self.renderField?.textColor = Severity.usage(utilization).textColor
         }
         if let utilization = value.tilerUtilization {
             self.tilerCircle?.toolTip = "\(localizedString("Tiler utilization")): \(Int(utilization.rounded(toPlaces: 2) * 100))%"
+            self.tilerCircle?.setColor(Severity.isEnabled ? Severity.usage(utilization).color : .systemBlue)
             self.tilerCircle?.setValue(utilization)
             self.tilerCircle?.display()
             self.tilerField?.stringValue = "\(Int(utilization*100))%"
+            self.tilerField?.textColor = Severity.usage(utilization).textColor
         }
         if let utilization = value.aneUtilization {
             self.aneField?.stringValue = "\(Int(utilization*100))%"
+            self.aneField?.textColor = Severity.usage(utilization).textColor
         }
         if let fps = value.fps {
             self.fpsField?.stringValue = "\(Int(fps.rounded()))"

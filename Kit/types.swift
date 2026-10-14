@@ -1,12 +1,6 @@
 //
 //  types.swift
-//  Kit
-//
-//  Created by Serhiy Mytrovtsiy on 10/04/2021.
-//  Using Swift 5.0.
-//  Running on macOS 10.15.
-//
-//  Copyright © 2021 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Cocoa
@@ -314,10 +308,6 @@ public extension Notification.Name {
     static let pause = Notification.Name("pause")
     static let toggleFanControl = Notification.Name("toggleFanControl")
     static let combinedModulesPopup = Notification.Name("combinedModulesPopup")
-    static let remoteLoginSuccess = Notification.Name("remoteLoginSuccess")
-    static let remoteState = Notification.Name("remoteState")
-    static let remoteAuthenticated = Notification.Name("remoteAuthenticated")
-    static let remoteUpdate = Notification.Name("remoteUpdate")
     static let openWindow = Notification.Name("openWindow")
 }
 
@@ -473,16 +463,4 @@ public enum RAMPressure: String, Codable {
             self = .normal
         }
     }
-}
-
-public struct TokenResponse: Codable {
-    public let access_token: String
-    public let refresh_token: String
-}
-
-public struct DeviceResponse: Codable {
-    public let device_code: String
-    public let user_code: String
-    public let verification_uri_complete: URL
-    public let interval: Int?
 }

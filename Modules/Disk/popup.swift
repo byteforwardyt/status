@@ -1,18 +1,13 @@
 //
 //  popup.swift
-//  Disk
-//
-//  Created by Serhiy Mytrovtsiy on 11/05/2020.
-//  Using Swift 5.0.
-//  Running on macOS 10.15.
-//
-//  Copyright © 2020 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Cocoa
 import Kit
 
 internal class Popup: PopupWrapper {
+    private let storageView = StorageHintsView(width: Constants.Popup.width)
     private var mainColorState: SColor = .secondBlue
     private var mainColor: NSColor { self.mainColorState.additional as? NSColor ?? NSColor.systemBlue }
     private var readColorState: SColor = .secondBlue
@@ -62,7 +57,9 @@ internal class Popup: PopupWrapper {
         self.spacing = 0
         
         self.addArrangedSubview(self.disks)
+        self.addArrangedSubview(self.storageView)
         self.addArrangedSubview(self.initProcesses())
+        self.storageView.sizeCallback = { [weak self] in self?.recalculateHeight() }
         
         self.recalculateHeight()
     }
@@ -75,6 +72,7 @@ internal class Popup: PopupWrapper {
         var h: CGFloat = 0
         h += self.disks.subviews.map({ $0.frame.height + self.disks.spacing }).reduce(0, +) - self.disks.spacing
         h += self.processesHeight
+        h += self.storageView.contentHeight
         if h > 0 && self.frame.size.height != h {
             self.setFrameSize(NSSize(width: self.frame.width, height: h))
             self.sizeCallback?(self.frame.size)

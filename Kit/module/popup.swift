@@ -1,12 +1,6 @@
 //
 //  popup.swift
-//  Kit
-//
-//  Created by Serhiy Mytrovtsiy on 11/04/2020.
-//  Using Swift 5.0.
-//  Running on macOS 10.15.
-//
-//  Copyright © 2020 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Cocoa
@@ -110,6 +104,7 @@ public class PopupWindow: NSWindow, NSWindowDelegate {
         self.animationBehavior = .default
         self.collectionBehavior = .moveToActiveSpace
         self.backgroundColor = .clear
+        self.isOpaque = false
         self.hasShadow = true
         self.setIsVisible(false)
         self.delegate = self
@@ -182,7 +177,7 @@ internal class PopupViewController: NSViewController {
 internal class PopupView: NSView {
     private var view: Popup_p? = nil
     
-    private var foreground: NSVisualEffectView
+    private var foreground: NSView
     private var background: NSView
     
     private let header: HeaderView
@@ -210,17 +205,14 @@ internal class PopupView: NSView {
         self.windowHeight = NSScreen.main?.visibleFrame.height
         self.containerHeight = self.body.documentView?.frame.height
         
-        self.foreground = NSVisualEffectView(frame: frame)
-        self.foreground.material = .titlebar
-        self.foreground.blendingMode = .behindWindow
-        self.foreground.state = .active
-        self.foreground.wantsLayer = true
-        self.foreground.layer?.backgroundColor = NSColor.red.cgColor
-        self.foreground.layer?.cornerRadius = 6
+        self.foreground = PopupView.makeMaterial(frame: frame)
         
+        // hairline border drawn on top of the material for a crisp edge
         self.background = NSView(frame: frame)
         self.background.wantsLayer = true
-        self.foreground.addSubview(self.background)
+        self.background.layer?.cornerRadius = Constants.Popup.windowRadius
+        self.background.layer?.cornerCurve = .continuous
+        self.background.layer?.borderWidth = 1
         
         super.init(frame: frame)
         
@@ -233,6 +225,7 @@ internal class PopupView: NSView {
         self.body.horizontalScrollElasticity = .none
         
         self.addSubview(self.foreground, positioned: .below, relativeTo: .none)
+        self.addSubview(self.background, positioned: .above, relativeTo: self.foreground)
         self.addSubview(self.header)
         self.addSubview(self.body)
     }
@@ -241,8 +234,37 @@ internal class PopupView: NSView {
         fatalError("init(coder:) has not been implemented")
     }
     
+    private static func makeMaterial(frame: NSRect) -> NSView {
+        if #available(macOS 26.0, *) {
+            let glass = NSGlassEffectView(frame: frame)
+            glass.cornerRadius = Constants.Popup.windowRadius
+            // adaptive tint keeps text legible over busy or contrasting wallpapers
+            glass.tintColor = NSColor(name: nil) { appearance in
+                appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                    ? NSColor.black.withAlphaComponent(0.35)
+                    : NSColor.white.withAlphaComponent(0.6)
+            }
+            return glass
+        }
+        let effect = NSVisualEffectView(frame: frame)
+        effect.material = .popover
+        effect.blendingMode = .behindWindow
+        effect.state = .active
+        effect.wantsLayer = true
+        effect.layer?.cornerRadius = Constants.Popup.windowRadius
+        effect.layer?.cornerCurve = .continuous
+        effect.layer?.masksToBounds = true
+        return effect
+    }
+    
+    override var wantsUpdateLayer: Bool { true }
+    
     override func updateLayer() {
-        self.background.layer?.backgroundColor = self.isDarkMode ? .clear : NSColor.white.cgColor
+        self.effectiveAppearance.performAsCurrentDrawingAppearance {
+            self.background.layer?.borderColor = Theme.hairline.cgColor
+            // frosted lift in light mode so text stays crisp over dark wallpapers
+            self.background.layer?.backgroundColor = self.isDarkMode ? NSColor.clear.cgColor : NSColor.white.withAlphaComponent(0.55).cgColor
+        }
     }
     
     fileprivate func setView(_ view: Popup_p?) {
@@ -374,18 +396,12 @@ internal class HeaderView: NSStackView {
         
         self.orientation = .horizontal
         self.distribution = .gravityAreas
+        self.alignment = .centerY
         self.spacing = 0
+        self.edgeInsets = NSEdgeInsets(top: 4, left: Constants.Popup.margins, bottom: 0, right: Constants.Popup.margins)
         
-        let activity = NSButtonWithPadding()
-        activity.frame = CGRect(x: 0, y: 0, width: 24, height: self.frame.height)
-        activity.horizontalPadding = activity.frame.height - 24
-        activity.bezelStyle = .regularSquare
-        activity.translatesAutoresizingMaskIntoConstraints = false
-        activity.imageScaling = .scaleNone
-        activity.contentTintColor = .lightGray
-        activity.isBordered = false
+        let activity = HeaderButton()
         activity.target = self
-        activity.focusRingType = .none
         self.activityButton = activity
         self.setupActionButton()
         
@@ -394,27 +410,19 @@ internal class HeaderView: NSStackView {
         title.isSelectable = false
         title.isBezeled = false
         title.wantsLayer = true
-        title.textColor = .textColor
+        title.textColor = .labelColor
         title.backgroundColor = .clear
         title.canDrawSubviewsIntoLayer = true
         title.alignment = .center
-        title.font = NSFont.systemFont(ofSize: 16, weight: .regular)
+        title.font = NSFont.systemFont(ofSize: 14, weight: .semibold)
         title.stringValue = ""
         self.titleView = title
         
-        let settings = NSButtonWithPadding()
-        settings.frame = CGRect(x: 0, y: 0, width: 24, height: self.frame.height)
-        settings.horizontalPadding = activity.frame.height - 24
-        settings.bezelStyle = .regularSquare
-        settings.translatesAutoresizingMaskIntoConstraints = false
-        settings.imageScaling = .scaleNone
-        settings.image = iconFromSymbol(name: "command", scale: .large)
-        settings.contentTintColor = .lightGray
-        settings.isBordered = false
+        let settings = HeaderButton()
+        settings.image = iconFromSymbol(name: "slider.horizontal.3", scale: .medium)
         settings.action = #selector(self.openSettings)
         settings.target = self
         settings.toolTip = localizedString("Open module")
-        settings.focusRingType = .none
         
         self.addArrangedSubview(activity)
         self.addArrangedSubview(title)
@@ -422,7 +430,7 @@ internal class HeaderView: NSStackView {
         
         NSLayoutConstraint.activate([
             title.widthAnchor.constraint(
-                equalToConstant: self.frame.width - activity.intrinsicContentSize.width - settings.intrinsicContentSize.width
+                equalToConstant: self.frame.width - (HeaderButton.size * 2) - (Constants.Popup.margins * 2)
             )
         ])
     }
@@ -441,25 +449,20 @@ internal class HeaderView: NSStackView {
         
         if self.isCloseAction {
             button.action = #selector(self.closePopup)
-            button.image = iconFromSymbol(name: "xmark.circle.fill", scale: .xlarge)
+            button.image = iconFromSymbol(name: "xmark", scale: .medium)
             button.toolTip = localizedString("Close")
             return
         }
         
         if self.module == .clock {
             button.action = #selector(self.openCalendar)
-            button.image = iconFromSymbol(name: "calendar", scale: .large)
+            button.image = iconFromSymbol(name: "calendar", scale: .medium)
             button.toolTip = localizedString("Open Calendar")
-            return
-        } else if self.module == .remote {
-            button.action = #selector(self.openSystemStats)
-            button.image = iconFromSymbol(name: "globe", scale: .large)
-            button.toolTip = localizedString("Open System Stats")
             return
         }
         
         button.action = #selector(self.openActivityMonitor)
-        button.image = iconFromSymbol(name: "chart.bar.fill", scale: .medium)
+        button.image = iconFromSymbol(name: "waveform.path.ecg", scale: .medium)
         button.toolTip = localizedString("Open Activity Monitor")
     }
     
@@ -476,11 +479,6 @@ internal class HeaderView: NSStackView {
         NSWorkspace.shared.open([], withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration())
     }
     
-    @objc func openSystemStats() {
-        guard let url = URL(string: "https://app.system-stats.com") else { return }
-        NSWorkspace.shared.open(url)
-    }
-    
     @objc func openSettings() {
         NotificationCenter.default.post(name: .toggleSettings, object: nil, userInfo: ["module": self.title])
     }
@@ -495,5 +493,50 @@ internal class HeaderView: NSStackView {
         guard state != self.isCloseAction else { return }
         self.isCloseAction = state
         self.setupActionButton()
+    }
+}
+
+/// Small circular icon button used in popup headers; shows a soft fill on hover.
+internal class HeaderButton: NSButton {
+    static let size: CGFloat = 26
+    private var tracking: NSTrackingArea?
+    
+    init() {
+        super.init(frame: NSRect(x: 0, y: 0, width: HeaderButton.size, height: HeaderButton.size))
+        self.bezelStyle = .regularSquare
+        self.isBordered = false
+        self.imageScaling = .scaleNone
+        self.imagePosition = .imageOnly
+        self.focusRingType = .none
+        self.contentTintColor = .secondaryLabelColor
+        self.wantsLayer = true
+        self.layer?.cornerRadius = HeaderButton.size / 2
+        self.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            self.widthAnchor.constraint(equalToConstant: HeaderButton.size),
+            self.heightAnchor.constraint(equalToConstant: HeaderButton.size)
+        ])
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let tracking { self.removeTrackingArea(tracking) }
+        let area = NSTrackingArea(rect: self.bounds, options: [.activeAlways, .mouseEnteredAndExited, .inVisibleRect], owner: self, userInfo: nil)
+        self.addTrackingArea(area)
+        self.tracking = area
+    }
+    
+    override func mouseEntered(with event: NSEvent) {
+        self.layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(0.1).cgColor
+        self.contentTintColor = .labelColor
+    }
+    
+    override func mouseExited(with event: NSEvent) {
+        self.layer?.backgroundColor = NSColor.clear.cgColor
+        self.contentTintColor = .secondaryLabelColor
     }
 }

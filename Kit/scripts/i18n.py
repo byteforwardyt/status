@@ -65,10 +65,10 @@ def key_positions(parsed_lines):
 
 
 class i18n:
-    path = os.getcwd() + "/Stats/Supporting Files"
+    path = os.getcwd() + "/Status/Supporting Files"
 
     app_context = (
-        "Context: the text is a short UI label from Stats, an open-source macOS menu-bar "
+        "Context: the text is a short UI label from Status, an open-source macOS menu-bar "
         "system monitor (CPU, GPU, RAM, disk, network, battery, sensors). The labels name "
         "widgets, modules, menu items, and settings. They are not full sentences, so do not "
         "rephrase or compress them."
@@ -78,7 +78,7 @@ class i18n:
 
     def __init__(self):
         if "Kit/scripts" in os.getcwd():
-            self.path = os.getcwd() + "/../../Stats/Supporting Files"
+            self.path = os.getcwd() + "/../../Status/Supporting Files"
         self.languages = list(filter(lambda x: x.endswith(".lproj"), os.listdir(self.path)))
 
     def en_file(self):
@@ -179,7 +179,7 @@ class i18n:
 
     def scan(self, clean=False, accept=False):
         repo_root = os.path.dirname(os.path.dirname(self.path))
-        code_dirs = ["Stats", "Kit", "Modules", "Widgets", "SMC", "LaunchAtLogin"]
+        code_dirs = ["Status", "Kit", "Modules", "Widgets", "SMC", "LaunchAtLogin"]
         skip_parts = {"build", ".build", "DerivedData", "Pods", "xcloc", "xcarchive"}
 
         en_keys = set()

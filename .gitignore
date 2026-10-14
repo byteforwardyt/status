@@ -5,11 +5,11 @@ Carthage
 build
 xcuserdata
 
-Stats.dmg
-Stats.app
+Status.dmg
+Status.app
 create-dmg
 dSYMs.zip
-Stats.dmg.zip
+Status.dmg.zip
 SMC/smc
 
 Cartfile.resolved

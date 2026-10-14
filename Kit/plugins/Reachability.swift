@@ -1,13 +1,7 @@
 //
 //  Reachability.swift
-//  Kit
+//  Status
 //
-//  Created by Serhiy Mytrovtsiy on 15/10/2021.
-//  Using Swift 5.0.
-//  Running on macOS 10.15.
-//
-//  Copyright © 2021 Serhiy Mytrovtsiy. All rights reserved.
-//  Inspired by https://gist.github.com/saeed-rz/d9827b312915e0dc145497532e514470 and https://github.com/ashleymills/Reachability.swift
 
 import Foundation
 import SystemConfiguration
@@ -20,7 +14,7 @@ public class Reachability {
     
     private var isRunning = false
     private var reachability: SCNetworkReachability?
-    private let reachabilitySerialQueue = DispatchQueue(label: "eu.exelban.ReachabilityQueue")
+    private let reachabilitySerialQueue = DispatchQueue(label: "app.status.ReachabilityQueue")
     
     public init(start: Bool = false) {
         var zeroAddress = sockaddr()

@@ -1,12 +1,6 @@
 //
 //  main.swift
-//  GPU
-//
-//  Created by Serhiy Mytrovtsiy on 17/08/2020.
-//  Using Swift 5.0.
-//  Running on macOS 10.15.
-//
-//  Copyright © 2020 Serhiy Mytrovtsiy. All rights reserved.
+//  Status
 //
 
 import Cocoa
@@ -53,18 +47,10 @@ public struct GPU_Info: Codable {
         self.renderUtilization = render
         self.tilerUtilization = tiler
     }
-    
-    public func remote() -> String {
-        var id = self.id
-        if self.id.isEmpty {
-            id = "0"
-        }
-        return "\(id),1,\(self.utilization ?? 0),\(self.renderUtilization ?? 0),\(self.tilerUtilization ?? 0),,"
-    }
 }
 
-public class GPUs: Codable, RemoteType {
-    private var queue: DispatchQueue = DispatchQueue(label: "eu.exelban.Stats.GPU.SynchronizedArray")
+public class GPUs: Codable {
+    private var queue: DispatchQueue = DispatchQueue(label: "app.status.Status.GPU.SynchronizedArray")
     
     private var _list: [GPU_Info] = []
     public var list: [GPU_Info] {
@@ -90,18 +76,6 @@ public class GPUs: Codable, RemoteType {
     
     internal func active() -> [GPU_Info] {
         return self.list.filter{ $0.state && $0.utilization != nil }.sorted{ $0.utilization ?? 0 > $1.utilization ?? 0 }
-    }
-    
-    public func remote() -> Data? {
-        var string = "\(self.list.count),"
-        for (i, v) in self.list.enumerated() {
-            string += v.remote()
-            if i != self.list.count {
-                string += ","
-            }
-        }
-        string += "$"
-        return string.data(using: .utf8)
     }
 }
 
@@ -178,6 +152,10 @@ public class GPU: Module {
             return
         }
         
+        HealthMonitor.shared.report(.gpuUsage, utilization)
+        if let temperature = selectedGPU.temperature, temperature > 0 {
+            HealthMonitor.shared.report(.gpuTemperature, temperature)
+        }
         self.popupView.loadCallback(selectedGPU)
         self.portalView.callback(selectedGPU)
         self.notificationsView.usageCallback(utilization)
